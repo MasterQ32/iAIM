@@ -54,6 +54,11 @@ base_t rightBase = {
 particle_t *particles = NULL;
 projectile_t *projectiles = NULL;
 
+SDL_Rect battleground = {
+	128, 0,
+	1280 - 256, 720
+};
+	
 void load_resources();
 
 void menu();
@@ -111,10 +116,6 @@ void setTextureColor(base_t const * b, SDL_Texture *tex)
 
 void render_battleground()
 {
-	SDL_Rect battleground = {
-		128, 0,
-		1280 - 256, 720
-	};
 	SDL_RenderSetClipRect(renderer, &battleground);
 
 	SDL_RenderCopy(
@@ -265,12 +266,107 @@ void render_battleground()
 	SDL_RenderSetClipRect(renderer, NULL);
 }
 
+void player_aim(base_t *player)
+{
+	uint32_t nextFrameTime = 0;
+	
+	float a = 15.0;
+	float d = 1.0;
+			
+			int baseRadius = 155;
+	
+	while(true)
+	{
+		float dt = 1.0 / 60.0;
+		
+		a += 90.0 * d * dt;
+		
+		// bounces
+		if(a > 165.0) {
+			a = 165.0;
+			d = -1;
+		}
+		else if(a < 15.0) {
+			a = 15.0;
+			d = 1;
+		}
+		
+		SDL_Event e;
+		while(SDL_PollEvent(&e))
+		{
+			if(e.type == SDL_QUIT) exit(1);
+			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) exit(1);
+			
+			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_SPACE) {
+				
+				float2 pos = {
+					battleground.x + baseRadius * sinf(DEG_TO_RAD(a)) - 6,
+					battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(a)) - 6,
+				};
+			
+				fire_projectile(player, pos, (float2){100.0, 50.0 });
+				return;
+			}
+		}
+		
+		SDL_SetRenderDrawColor(renderer, 0, 0, 128, 255);
+		SDL_RenderClear(renderer);
+		
+		render_battleground();
+		
+		{ // render projectle preview
+			setTextureColor(player, texProjectile);
+	
+			SDL_Rect target = {
+				baseRadius * sinf(DEG_TO_RAD(a)) - 6,
+				battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(a)) - 6,
+				11,
+				11
+			};
+			
+			SDL_RenderCopyEx(
+				renderer,
+				texProjectile,
+				NULL,
+				&target,
+				-a + 90,
+				NULL,
+				SDL_FLIP_NONE);
+		}
+		
+		SDL_RenderPresent(renderer);
+		
+		while(SDL_GetTicks() < nextFrameTime) {
+			; // BURN!
+		}
+		nextFrameTime = SDL_GetTicks() + 15;
+	}
+}
+
 void start_round()
 {
+	while(true)
+	{
+		// todo: player_build()
+	
+		fprintf(stdout, "Start aiming...\n");
+		player_aim(&leftBase);
+		
+		// todo: battle_simulation()
+		
+		// todo: battle_reset()
+		
+		// todo: switch_player()
+	}
+
+
 	SDL_Event e;
 	uint32_t nextFrameTime = 0;
 	
-	int a = 0;
+	base_t * currentPlayer = &leftBase;
+	
+	int stage = 0;
+	
 	while(true)
 	{
 		float dt = 1.0 / 60.0;
@@ -336,19 +432,6 @@ void start_round()
 			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_f) {
 				fire_projectile(&leftBase, (float2){ 100, 100 }, (float2){100.0, 50.0 });
 			}
-		}
-
-		uint8_t *kbd = SDL_GetKeyboardState(NULL);
-		if(kbd[SDL_SCANCODE_SPACE]) {
-			int x = 200 + 100 * sin(DEG_TO_RAD(a));
-			int y = 200 + 100 * cos(DEG_TO_RAD(a));
-			spawn_particle(&leftBase, x, y, -a);
-			
-			x = 200 + 100 * sin(DEG_TO_RAD(a + 0.5));
-			y = 200 + 100 * cos(DEG_TO_RAD(a + 0.5));
-			spawn_particle(&leftBase, x, y, -a);
-			
-			a += 1;
 		}
 		
 		SDL_SetRenderDrawColor(renderer, 0, 0, 128, 255);
