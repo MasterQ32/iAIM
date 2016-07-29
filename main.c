@@ -8,6 +8,10 @@
 #define DEG_TO_RAD(x) ((x) * M_PI / 180.0)
 
 typedef struct {
+	float x, y;
+} float2;
+
+typedef struct {
 	SDL_Color color;
 	int protectors[13];
 } base_t;
@@ -20,11 +24,20 @@ typedef struct particle {
 	struct particle * next;
 } particle_t;
 
+typedef struct projectile {
+	base_t const * base;
+	bool active;
+	float2 pos;
+	float2 vel;
+	struct projectile * next;
+} projectile_t;
+
 SDL_Window *window;
 SDL_Renderer *renderer;
 
 SDL_Texture *texPlayArea;
 SDL_Texture *texBase;
+SDL_Texture *texProjectile;
 SDL_Texture *texParticle;
 SDL_Texture *texBarricade[3];
 
@@ -39,6 +52,7 @@ base_t rightBase = {
 };
 
 particle_t *particles = NULL;
+projectile_t *projectiles = NULL;
 
 void load_resources();
 
@@ -47,6 +61,8 @@ void menu();
 void start_round();
 
 void spawn_particle(base_t const * base, int x, int y, float rot);
+
+void fire_projectile(base_t const * base, float2 pos, float2 vel);
 
 int main(int argc, char **argv)
 {
@@ -219,6 +235,33 @@ void render_battleground()
 		}
 	}
 	
+	{ // Draw projectiles
+		for(projectile_t * p = projectiles; p != NULL; p = p->next)
+		{
+			if(p->active == false) {
+				continue;
+			}
+			setTextureColor(p->base, texProjectile);
+			
+			SDL_Rect target = {
+				battleground.x + p->pos.x - 5, p->pos.y - 5,
+				11, 11
+			};
+			
+			float rot = 90 - RAD_TO_DEG(atan2(p->vel.x, p->vel.y));
+			
+			SDL_RenderCopyEx(
+				renderer,
+				texProjectile,
+				NULL,
+				&target,
+				rot,
+				NULL,
+				SDL_FLIP_NONE);
+		
+		}
+	}
+	
 	SDL_RenderSetClipRect(renderer, NULL);
 }
 
@@ -227,13 +270,18 @@ void start_round()
 	SDL_Event e;
 	uint32_t nextFrameTime = 0;
 	
-	int x = 100;
+	int a = 0;
 	while(true)
 	{
+		float dt = 1.0 / 60.0;
+		
 		// first, tick all particles
 		for(particle_t * p = particles, *prev = NULL; p != NULL; )
 		{
-			p->progress += 3;
+			// progress the particle
+			p->progress += 2;
+			
+			// this is fancy deletion code.
 			if(p->progress >= 200) {
 				// remove the particle here:
 				if(prev != NULL) {
@@ -252,22 +300,55 @@ void start_round()
 				p = p->next;
 			}
 		}
+		
+		// second: tick all projectiles
+		for(projectile_t *p = projectiles; p != NULL; p = p->next)
+		{
+			if(p->active == false) {
+				continue;
+			}
+			
+			float2 delta = {
+				p->vel.x * dt,
+				p->vel.y * dt,
+			};
+			
+			p->pos.x += delta.x;
+			p->pos.y += delta.y;
+			
+			// Spawn particles on the way of moving
+			float rot = 90 - RAD_TO_DEG(atan2(p->vel.x, p->vel.y));
+			int cnt = 1 + sqrt(delta.x*delta.x + delta.y*delta.y);
+			for(int i = 0; i < cnt; i++) {
+				float2 ppos = {
+					p->pos.x - i * delta.x / (cnt - 1),
+					p->pos.y - i * delta.y / (cnt - 1),
+				};
+				spawn_particle(p->base, ppos.x, ppos.y, rot);
+			}
+		}
 	
 		while(SDL_PollEvent(&e))
 		{
 			if(e.type == SDL_QUIT) return;
 			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) return;
+			
+			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_f) {
+				fire_projectile(&leftBase, (float2){ 100, 100 }, (float2){100.0, 50.0 });
+			}
 		}
-		
-		float dt = 1.0 / 6.0;
 
 		uint8_t *kbd = SDL_GetKeyboardState(NULL);
 		if(kbd[SDL_SCANCODE_SPACE]) {
-			spawn_particle(&leftBase, x + 0, 100, 0.0);
-			spawn_particle(&leftBase, x + 1, 100, 0.0);
-			spawn_particle(&leftBase, x + 2, 100, 0.0);
-			spawn_particle(&leftBase, x + 3, 100, 0.0);
-			x += 4;
+			int x = 200 + 100 * sin(DEG_TO_RAD(a));
+			int y = 200 + 100 * cos(DEG_TO_RAD(a));
+			spawn_particle(&leftBase, x, y, -a);
+			
+			x = 200 + 100 * sin(DEG_TO_RAD(a + 0.5));
+			y = 200 + 100 * cos(DEG_TO_RAD(a + 0.5));
+			spawn_particle(&leftBase, x, y, -a);
+			
+			a += 1;
 		}
 		
 		SDL_SetRenderDrawColor(renderer, 0, 0, 128, 255);
@@ -318,7 +399,17 @@ void spawn_particle(base_t const * base, int x, int y, float rot)
 	particles = p;
 }
 
-
+void fire_projectile(base_t const * base, float2 pos, float2 vel)
+{
+	projectile_t *p = malloc(sizeof(projectile_t));
+	p->base = base;
+	p->active = true;
+	p->pos = pos;
+	p->vel = vel;
+	p->next = projectiles; 
+	// Prepend
+	projectiles = p;
+}
 
 
 
@@ -356,6 +447,7 @@ void load_resources()
 	LOAD(texPlayArea, "tex/play-area.png");
 	LOAD(texBase, "tex/base.png");
 	LOAD(texParticle, "tex/particles.png");
+	LOAD(texProjectile, "tex/projectile.png");
 	LOAD(texBarricade[0], "tex/barricade-0.png");
 	LOAD(texBarricade[1], "tex/barricade-1.png");
 	LOAD(texBarricade[2], "tex/barricade-2.png");
