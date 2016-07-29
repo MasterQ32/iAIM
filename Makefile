@@ -3,4 +3,4 @@
 all: aim
 
 aim: main.c
-	gcc -o $@ -lm -lSDL2 -lSDL2_image $^
+	gcc -o $@ -g -lm -lSDL2 -lSDL2_image $^
