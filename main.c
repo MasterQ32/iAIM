@@ -34,7 +34,7 @@ typedef struct projectile {
 } projectile_t;
 
 typedef struct affector {
-	int type; /* 0=positive, 1=negative, 2=boost, 3=splitter */
+	int type; /* 0=positive, 1=negative, 2=boost, 3=splitter3, 4=splitter2 */
 	float2 center;
 	float rotation;
 	struct affector *next;
@@ -48,7 +48,7 @@ SDL_Texture *texBase;
 SDL_Texture *texProjectile;
 SDL_Texture *texParticle;
 SDL_Texture *texBarricade[3];
-SDL_Texture *texAffector[4];
+SDL_Texture *texAffector[5];
 
 base_t leftBase = {
 	{ 92, 75, 255, 255 },
@@ -481,13 +481,21 @@ void battle_simulation()
 				if(len <= 16) { // 32 diameter
 					// we crashen in an affector
 					
-					if(a->type == 2 || a->type == 3) {
+					if(a->type >= 2 || a->type <= 4) {
 						// and this affector is a booster
 						printf("BOOST!\n");
 						
 						int offset[] = { 0, -45, 45 };
-						int len = (a->type == 3) ? 3 : 1;
+						int len = 1;
 						float speed = 1.5 * length(p->vel);
+						switch(a->type) {
+							case 2: len = 1; break;
+							case 3: len = 3; break;
+							case 4: len = 2; 
+								offset[0] = -30;
+								offset[1] =  30;
+								break;
+						}
 						
 						for(int i = 0; i < len; i++) {
 							float2 dir = {
@@ -674,6 +682,9 @@ void player_build()
 	
 	splitter = create_affector(3, (float2){ 360, 460 }); // positive affector
 	splitter->rotation = -45;
+	
+	splitter = create_affector(4, (float2){ 260, 260 }); // positive affector
+	splitter->rotation = -45;
 }
 
 void start_round()
@@ -798,7 +809,8 @@ void load_resources()
 	LOAD(texAffector[0], "tex/positive-affector.png");
 	LOAD(texAffector[1], "tex/negative-affector.png");
 	LOAD(texAffector[2], "tex/boost-affector.png");
-	LOAD(texAffector[3], "tex/split-affector.png");
+	LOAD(texAffector[3], "tex/split3-affector.png");
+	LOAD(texAffector[4], "tex/split2-affector.png");
 #undef LOAD
 }
 
