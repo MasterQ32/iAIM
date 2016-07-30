@@ -727,7 +727,7 @@ void battle_reset()
 
 void player_build(base_t *player)
 {
-	//*
+	/*
 	affector_t *booster, *splitter;
 	
 	create_affector(0, (float2){ 512, 360 - 100 }); // positive affector
@@ -742,6 +742,7 @@ void player_build(base_t *player)
 	splitter->rotation = -45;;
 	// */
 	
+	int draggingAffector = -1;
 	
 	SDL_Event e;
 	uint32_t nextFrameTime = 0;
@@ -756,6 +757,38 @@ void player_build(base_t *player)
 		{
 			if(e.type == SDL_QUIT) return;
 			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) return;
+			
+			if(e.type == SDL_MOUSEBUTTONDOWN)
+			{
+				SDL_Rect target = {
+					32, 32, 64, 64
+				};
+				for(int i = 0; i < AFFECTOR_TYPE_COUNT; i++) {
+					int count = player->resources[i];
+					if(count <= 0) {
+						continue;
+					}
+					
+					if(e.button.x >= target.x && e.button.y >= target.y &&
+					   e.button.x < (target.x + target.w) &&
+						 e.button.y < (target.y + target.h))
+					{
+						draggingAffector = i;
+						break;
+					}
+				
+					target.y += 96;
+				}
+			}
+			
+			if(e.type == SDL_MOUSEBUTTONUP)
+			{
+				if(e.button.x >= 128) {
+					create_affector(draggingAffector, (float2){e.button.x - 128, e.button.y});
+					player->resources[draggingAffector] -= 1;
+				}
+				draggingAffector = -1;
+			}
 		}
 		
 		SDL_SetRenderDrawColor(renderer, 128, 128, 128, 255);
@@ -819,6 +852,24 @@ void player_build(base_t *player)
 					NULL,
 					&rightPanel);
 			}
+		}
+		
+		if(draggingAffector >= 0)
+		{
+			SDL_Rect target = {
+				0, 0,
+				64, 64
+			};
+			
+			SDL_GetMouseState(&target.x, &target.y);
+			target.x -= 32;
+			target.y -= 32;
+			
+			SDL_RenderCopy(
+				renderer,
+				texAffector[draggingAffector],
+				NULL,
+				&target);
 		}
 		
 		SDL_RenderPresent(renderer);
