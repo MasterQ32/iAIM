@@ -34,7 +34,7 @@ typedef struct projectile {
 } projectile_t;
 
 typedef struct affector {
-	int type; /* 0=positive, 1=negative */
+	int type; /* 0=positive, 1=negative, 2=boost */
 	float2 center;
 	float rotation;
 	struct affector *next;
@@ -48,7 +48,7 @@ SDL_Texture *texBase;
 SDL_Texture *texProjectile;
 SDL_Texture *texParticle;
 SDL_Texture *texBarricade[3];
-SDL_Texture *texAffector[2];
+SDL_Texture *texAffector[3];
 
 base_t leftBase = {
 	{ 92, 75, 255, 255 },
@@ -95,7 +95,7 @@ void spawn_particle(base_t const * base, int x, int y, float rot);
 
 void fire_projectile(base_t const * base, float2 pos, float2 vel);
 
-void create_affector(int type, float2 pos);
+affector_t * create_affector(int type, float2 pos);
 
 
 int main(int argc, char **argv)
@@ -236,26 +236,6 @@ void render_battleground()
 		}
 	}
 	
-	// Draw affectors
-	{		
-		for(affector_t *p = affectors; p != NULL; p = p->next)
-		{
-			SDL_Rect target = {
-				battleground.x + p->center.x - 32, p->center.y - 32,
-				64, 64
-			};
-		
-			SDL_RenderCopyEx(
-				renderer,
-				texAffector[p->type],
-				NULL,
-				&target,
-				p->rotation,
-				NULL,
-				SDL_FLIP_NONE);
-		}
-	}
-	
 	{ // Draw particles
 		for(particle_t * p = particles; p != NULL; p = p->next)
 		{
@@ -309,6 +289,26 @@ void render_battleground()
 				NULL,
 				SDL_FLIP_NONE);
 		
+		}
+	}
+	
+	// Draw affectors
+	{		
+		for(affector_t *p = affectors; p != NULL; p = p->next)
+		{
+			SDL_Rect target = {
+				battleground.x + p->center.x - 32, p->center.y - 32,
+				64, 64
+			};
+		
+			SDL_RenderCopyEx(
+				renderer,
+				texAffector[p->type],
+				NULL,
+				&target,
+				p->rotation,
+				NULL,
+				SDL_FLIP_NONE);
 		}
 	}
 	
@@ -480,6 +480,29 @@ void battle_simulation()
 				
 				if(len <= 16) { // 32 diameter
 					// we crashen in an affector
+					
+					if(a->type == 2) {
+						// and this affector is a booster
+						printf("BOOST!\n");
+						
+						float2 dir = {
+							24 * cos(DEG_TO_RAD(a->rotation)),
+							24 * sin(DEG_TO_RAD(a->rotation)),
+						};
+						
+						float speed = 1.5 * length(p->vel);
+						
+						float2 xvel = dir;
+						xvel.x *= speed / 24;
+						xvel.y *= speed / 24;
+						
+						anyProjectileAlive = true;
+						fire_projectile(
+							p->base, 
+							(float2){ a->center.x + dir.x, a->center.y + dir.y }, 
+							xvel);
+					}
+					
 					p->active = false;
 					break;
 				}
@@ -638,8 +661,13 @@ void battle_reset()
 
 void player_build()
 {
+	affector_t *booster;
+	
 	create_affector(0, (float2){ 512, 360 - 100 }); // positive affector
 	create_affector(1, (float2){ 512, 360 + 100 }); // positive affector
+	booster = create_affector(2, (float2){ 360, 260 }); // positive affector
+	
+	booster->rotation = 45;
 }
 
 void start_round()
@@ -710,7 +738,7 @@ void fire_projectile(base_t const * base, float2 pos, float2 vel)
 	projectiles = p;
 }
 
-void create_affector(int type, float2 pos)
+affector_t * create_affector(int type, float2 pos)
 {
 	affector_t *a = malloc(sizeof(affector_t));
 	a->type = type; /* 0=positive, 1=negative */
@@ -719,6 +747,8 @@ void create_affector(int type, float2 pos)
 	a->next = affectors;
 	
 	affectors = a;
+	
+	return a;
 }
 
 
@@ -761,6 +791,7 @@ void load_resources()
 	LOAD(texBarricade[2], "tex/barricade-2.png");
 	LOAD(texAffector[0], "tex/positive-affector.png");
 	LOAD(texAffector[1], "tex/negative-affector.png");
+	LOAD(texAffector[2], "tex/boost-affector.png");
 #undef LOAD
 }
 
