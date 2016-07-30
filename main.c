@@ -478,6 +478,12 @@ void battle_simulation()
 				dst.x /= len;
 				dst.y /= len;
 				
+				if(len <= 16) { // 32 diameter
+					// we crashen in an affector
+					p->active = false;
+					break;
+				}
+				
 				if(len <= 0) {
 					continue;
 				}
