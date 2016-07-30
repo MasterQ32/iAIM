@@ -37,7 +37,7 @@ typedef struct projectile {
 } projectile_t;
 
 typedef struct affector {
-	int type; /* 0=positive, 1=negative, 2=boost, 3=splitter3, 4=splitter2 */
+	int type; /* -1=removed, 0=positive, 1=negative, 2=boost, 3=splitter3, 4=splitter2 */
 	float2 center;
 	float rotation;
 	struct affector *next;
@@ -766,6 +766,7 @@ void player_build(base_t *player)
 	affector_t *currentAffector = NULL;
 	
 	bool isRotating = true;
+	int isMoving = 0;
 	
 	while(true)
 	{
@@ -826,19 +827,55 @@ void player_build(base_t *player)
 						{
 							isRotating = true;
 						}
+						
+						float2 delta = {
+							e.button.x - currentAffector->center.x - battleground.x,
+							e.button.y - currentAffector->center.y,
+						};
+						if(length(delta) < 16) {
+							isMoving = 1;
+							SDL_SetRelativeMouseMode(SDL_TRUE);
+						}
+						
+						if(length(delta) > 64) {
+							isMoving = 0;
+							isRotating = false;
+							SDL_SetRelativeMouseMode(SDL_FALSE);
+							currentAffector = NULL;
+						}
 					}
-				
+					// No else-if: Allows reselection of other affectors.
+					if(currentAffector == NULL)
+					{
+						float minDist = 16;
+						for(affector_t *p = affectors; p != NULL; p = p->next)
+						{
+							float2 pos = {
+								battleground.x + p->center.x,
+								p->center.y,
+							};
+							pos.x -= e.button.x;
+							pos.y -= e.button.y;
+							float l = length(pos);
+							if(l > minDist) {
+								continue;
+							}
+							l = minDist;
+							currentAffector = p;
+						}
+					}
 				}
 			}
 			
 			if(e.type == SDL_MOUSEBUTTONUP)
 			{
 				if(draggingAffector >= 0) {
-					if(e.button.x >= 128) {
+					if(e.button.x >= battleground.x) {
 						affector_t *a = create_affector(draggingAffector, (float2){e.button.x - 128, e.button.y});
 						if(player == &rightBase) {
 							a->rotation = 180;
 						}
+						currentAffector = a;
 						player->resources[draggingAffector] -= 1;
 					}
 					draggingAffector = -1;
@@ -846,6 +883,15 @@ void player_build(base_t *player)
 				
 				if(isRotating) {
 					isRotating = false;
+				}
+				if(isMoving) {
+					if(currentAffector != NULL && e.button.x <= battleground.x) {
+						player->resources[currentAffector->type] += 1; // return affector to inventory
+						currentAffector->type = -1;
+						currentAffector->center.x = -100000;
+					}
+					isMoving = 0;
+					SDL_SetRelativeMouseMode(SDL_FALSE);
 				}
 			}
 			
@@ -859,8 +905,15 @@ void player_build(base_t *player)
 					};
 					
 					currentAffector->rotation = 180 - RAD_TO_DEG(atan2(delta.x, delta.y));
-				
-				
+				}
+				if(currentAffector != NULL && isMoving)
+				{
+					if(isMoving == 1) {
+						isMoving = 2;
+					} else {
+						currentAffector->center.x += e.motion.xrel;
+						currentAffector->center.y += e.motion.yrel;
+					}
 				}
 			}
 		}
@@ -986,7 +1039,6 @@ void player_build(base_t *player)
 				SDL_FLIP_NONE);
 		}
 		
-		currentAffector = affectors;
 		if(currentAffector != NULL)
 		{
 			SDL_SetRenderDrawColor(
@@ -1110,7 +1162,6 @@ affector_t * create_affector(int type, float2 pos)
 	
 	return a;
 }
-
 
 
 
