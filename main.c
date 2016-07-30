@@ -330,7 +330,7 @@ void player_aim(base_t *player)
 	float a = 15.0;
 	float d = 1.0;
 			
-			int baseRadius = 155;
+	int baseRadius = 155;
 	
 	while(true)
 	{
@@ -344,14 +344,26 @@ void player_aim(base_t *player)
 			
 			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_SPACE) {
 				
-				float2 pos = {
-					baseRadius * sinf(DEG_TO_RAD(a)) - 6,
-					battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(a)) - 6,
-				};
-				float2 vel = {					
-					sinf(DEG_TO_RAD(a)),
-					cosf(DEG_TO_RAD(a)),
-				};
+				float2 pos, vel;
+				if(player == &leftBase) {
+					pos = (float2){
+						baseRadius * sinf(DEG_TO_RAD(a)) - 6,
+						battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(a)) - 6,
+					};
+					vel = (float2) {
+						sinf(DEG_TO_RAD(a)),
+						cosf(DEG_TO_RAD(a)),
+					};
+				} else {
+					pos = (float2) {
+						battleground.w - baseRadius * sinf(DEG_TO_RAD(a)) - 6,
+						battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(a)) - 6,
+					};
+					vel = (float2){
+						-sinf(DEG_TO_RAD(a)),
+						cosf(DEG_TO_RAD(a)),
+					};
+				}
 				vel.x *= 250;
 				vel.y *= 250;
 				
@@ -367,22 +379,41 @@ void player_aim(base_t *player)
 		
 		{ // render projectle preview
 			setTextureColor(player, texProjectile);
-	
-			SDL_Rect target = {
-				battleground.x + baseRadius * sinf(DEG_TO_RAD(a)) - 6,
-				battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(a)) - 6,
-				11,
-				11
-			};
 			
-			SDL_RenderCopyEx(
-				renderer,
-				texProjectile,
-				NULL,
-				&target,
-				-a + 90,
-				NULL,
-				SDL_FLIP_NONE);
+			if(player == &leftBase)
+			{
+				SDL_Rect target = {
+					battleground.x + baseRadius * sinf(DEG_TO_RAD(a)) - 6,
+					battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(a)) - 6,
+					11,
+					11
+				};
+				
+				SDL_RenderCopyEx(
+					renderer,
+					texProjectile,
+					NULL,
+					&target,
+					-a + 90,
+					NULL,
+					SDL_FLIP_NONE);
+				} else {
+					SDL_Rect target = {
+						battleground.x + battleground.w - baseRadius * sinf(DEG_TO_RAD(a)) - 6,
+						battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(a)) - 6,
+						11,
+						11
+					};
+					
+					SDL_RenderCopyEx(
+						renderer,
+						texProjectile,
+						NULL,
+						&target,
+						a + 90,
+						NULL,
+						SDL_FLIP_NONE);
+				}
 		}
 		
 		
@@ -727,21 +758,6 @@ void battle_reset()
 
 void player_build(base_t *player)
 {
-	/*
-	affector_t *booster, *splitter;
-	
-	create_affector(0, (float2){ 512, 360 - 100 }); // positive affector
-	create_affector(1, (float2){ 512, 360 + 100 }); // positive affector
-	booster = create_affector(2, (float2){ 360, 260 }); // positive affector
-	booster->rotation = 45;
-	
-	splitter = create_affector(3, (float2){ 360, 460 }); // positive affector
-	splitter->rotation = -75;
-	
-	splitter = create_affector(4, (float2){ 260, 260 }); // positive affector
-	splitter->rotation = -45;;
-	// */
-	
 	int draggingAffector = -1;
 	
 	SDL_Event e;
@@ -763,6 +779,10 @@ void player_build(base_t *player)
 				SDL_Rect target = {
 					32, 32, 64, 64
 				};
+				if(player == &rightBase) {
+					target.x += battleground.x;
+					target.x += battleground.w;
+				}
 				for(int i = 0; i < AFFECTOR_TYPE_COUNT; i++) {
 					int count = player->resources[i];
 					if(count <= 0) {
@@ -784,7 +804,10 @@ void player_build(base_t *player)
 			if(e.type == SDL_MOUSEBUTTONUP)
 			{
 				if(e.button.x >= 128) {
-					create_affector(draggingAffector, (float2){e.button.x - 128, e.button.y});
+					affector_t *a = create_affector(draggingAffector, (float2){e.button.x - 128, e.button.y});
+					if(player == &rightBase) {
+						a->rotation = 180;
+					}
 					player->resources[draggingAffector] -= 1;
 				}
 				draggingAffector = -1;
@@ -845,7 +868,46 @@ void player_build(base_t *player)
 			SDL_Rect rightPanel = {
 				battleground.x + battleground.w, 0, 128, 720
 			};
-			if(player != &rightBase) {
+			if(player == &rightBase) {
+				
+				SDL_Rect target = {
+					battleground.x + battleground.w + 32, 32, 
+					64, 64
+				};
+				for(int i = 0; i < AFFECTOR_TYPE_COUNT; i++) {
+					int count = player->resources[i];
+					if(count <= 0) {
+						continue;
+					}
+				
+					SDL_RenderCopyEx(
+						renderer,
+						texAffector[i],
+						NULL,
+						&target,
+						180,
+						NULL,
+						SDL_FLIP_NONE);
+					
+					SDL_Rect number = {
+						target.x + 48, target.y + 48,
+						16, 16
+					};
+					SDL_Rect numberSrc = {
+						16 * count, 0,
+						16, 16
+					};
+					SDL_RenderCopy(
+						renderer,
+						texNumbers,
+						&numberSrc,
+						&number);
+				
+					target.y += 96;
+				}
+			
+			
+			} else {
 				SDL_RenderCopy(
 					renderer,
 					texRightPanel,
@@ -864,12 +926,15 @@ void player_build(base_t *player)
 			SDL_GetMouseState(&target.x, &target.y);
 			target.x -= 32;
 			target.y -= 32;
-			
-			SDL_RenderCopy(
+				
+			SDL_RenderCopyEx(
 				renderer,
 				texAffector[draggingAffector],
 				NULL,
-				&target);
+				&target,
+				(player == &rightBase) ? 180 : 0,
+				NULL,
+				SDL_FLIP_NONE);
 		}
 		
 		SDL_RenderPresent(renderer);
@@ -883,14 +948,15 @@ void player_build(base_t *player)
 
 void start_round()
 {
+	base_t *player = &leftBase;
 	while(true)
 	{
 		// todo: player_build()
 		fprintf(stdout, "Battle setup...\n");
-		player_build(&leftBase);
+		player_build(player);
 	
 		fprintf(stdout, "Start aiming...\n");
-		player_aim(&leftBase);
+		player_aim(player);
 		
 		// todo: 
 		fprintf(stdout, "Battle simulation...\n");
@@ -899,7 +965,11 @@ void start_round()
 		fprintf(stdout, "Reset battle...\n");
 		battle_reset();
 		
-		// todo: switch_player()
+		if(player == &leftBase) {
+			player = &rightBase;
+		} else {
+			player = &leftBase;
+		}
 	}
 }
 
