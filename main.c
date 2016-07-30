@@ -487,9 +487,12 @@ void battle_simulation()
 						
 						int offset[] = { 0, -45, 45 };
 						int len = 0;
-						float speed = 1.5 * length(p->vel);
+						float speed = length(p->vel);
 						switch(a->type) {
-							case 2: len = 1; break;
+							case 2: 
+								len = 1; 
+								speed *= 2.0;
+								break;
 							case 3: len = 3; break;
 							case 4: len = 2; 
 								offset[0] = -30;
@@ -681,7 +684,7 @@ void player_build()
 	booster->rotation = 45;
 	
 	splitter = create_affector(3, (float2){ 360, 460 }); // positive affector
-	splitter->rotation = -45;
+	splitter->rotation = -75;
 	
 	splitter = create_affector(4, (float2){ 260, 260 }); // positive affector
 	splitter->rotation = -45;
