@@ -763,7 +763,9 @@ void player_build(base_t *player)
 	SDL_Event e;
 	uint32_t nextFrameTime = 0;
 	
-	base_t * currentPlayer = &leftBase;
+	affector_t *currentAffector = NULL;
+	
+	bool isRotating = true;
 	
 	while(true)
 	{
@@ -783,6 +785,7 @@ void player_build(base_t *player)
 					target.x += battleground.x;
 					target.x += battleground.w;
 				}
+				draggingAffector = -1;
 				for(int i = 0; i < AFFECTOR_TYPE_COUNT; i++) {
 					int count = player->resources[i];
 					if(count <= 0) {
@@ -799,18 +802,66 @@ void player_build(base_t *player)
 				
 					target.y += 96;
 				}
+				
+				if(draggingAffector < 0)
+				{
+					// Check for dragging the move point
+					if(currentAffector != NULL)
+					{							
+						float2 pos = {
+							48 * sinf(DEG_TO_RAD(currentAffector->rotation)),
+							-48 * cosf(DEG_TO_RAD(currentAffector->rotation)),
+						};
+						pos.x += currentAffector->center.x;
+						pos.y += currentAffector->center.y;
+						
+						SDL_Rect grabbag = {
+							battleground.x + pos.x - 4, pos.y - 4,
+							8, 8
+						};
+						
+						if(e.button.x >= grabbag.x && e.button.y >= grabbag.y &&
+					   e.button.x < (grabbag.x + grabbag.w) &&
+						 e.button.y < (grabbag.y + grabbag.h))
+						{
+							isRotating = true;
+						}
+					}
+				
+				}
 			}
 			
 			if(e.type == SDL_MOUSEBUTTONUP)
 			{
-				if(e.button.x >= 128) {
-					affector_t *a = create_affector(draggingAffector, (float2){e.button.x - 128, e.button.y});
-					if(player == &rightBase) {
-						a->rotation = 180;
+				if(draggingAffector >= 0) {
+					if(e.button.x >= 128) {
+						affector_t *a = create_affector(draggingAffector, (float2){e.button.x - 128, e.button.y});
+						if(player == &rightBase) {
+							a->rotation = 180;
+						}
+						player->resources[draggingAffector] -= 1;
 					}
-					player->resources[draggingAffector] -= 1;
+					draggingAffector = -1;
 				}
-				draggingAffector = -1;
+				
+				if(isRotating) {
+					isRotating = false;
+				}
+			}
+			
+			if(e.type == SDL_MOUSEMOTION);
+			{
+				if(currentAffector != NULL && isRotating)
+				{
+					float2 delta = {
+						e.motion.x - currentAffector->center.x - battleground.x,
+						e.motion.y - currentAffector->center.y,
+					};
+					
+					currentAffector->rotation = 180 - RAD_TO_DEG(atan2(delta.x, delta.y));
+				
+				
+				}
 			}
 		}
 		
@@ -905,8 +956,6 @@ void player_build(base_t *player)
 				
 					target.y += 96;
 				}
-			
-			
 			} else {
 				SDL_RenderCopy(
 					renderer,
@@ -935,6 +984,36 @@ void player_build(base_t *player)
 				(player == &rightBase) ? 180 : 0,
 				NULL,
 				SDL_FLIP_NONE);
+		}
+		
+		currentAffector = affectors;
+		if(currentAffector != NULL)
+		{
+			SDL_SetRenderDrawColor(
+				renderer,
+				192, 192, 192, 255);
+				
+			float2 pos = {
+				48 * sinf(DEG_TO_RAD(currentAffector->rotation)),
+				-48 * cosf(DEG_TO_RAD(currentAffector->rotation)),
+			};
+			pos.x += currentAffector->center.x;
+			pos.y += currentAffector->center.y;
+			SDL_RenderDrawLine(
+				renderer,
+				currentAffector->center.x + battleground.x, currentAffector->center.y,
+				battleground.x + pos.x, pos.y);
+			
+			SDL_Rect grabbag = {
+				battleground.x + pos.x - 4, pos.y - 4,
+				8, 8
+			};
+			if(isRotating) {
+				SDL_SetRenderDrawColor(
+					renderer,
+					255, 128, 128, 255);
+			}
+			SDL_RenderFillRect(renderer, &grabbag);
 		}
 		
 		SDL_RenderPresent(renderer);
