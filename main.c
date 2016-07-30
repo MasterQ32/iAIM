@@ -481,12 +481,12 @@ void battle_simulation()
 				if(len <= 16) { // 32 diameter
 					// we crashen in an affector
 					
-					if(a->type >= 2 || a->type <= 4) {
+					if(a->type >= 2 && a->type <= 4) {
 						// and this affector is a booster
 						printf("BOOST!\n");
 						
 						int offset[] = { 0, -45, 45 };
-						int len = 1;
+						int len = 0;
 						float speed = 1.5 * length(p->vel);
 						switch(a->type) {
 							case 2: len = 1; break;
