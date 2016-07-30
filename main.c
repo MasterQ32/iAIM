@@ -34,7 +34,7 @@ typedef struct projectile {
 } projectile_t;
 
 typedef struct affector {
-	int type; /* 0=positive, 1=negative, 2=boost */
+	int type; /* 0=positive, 1=negative, 2=boost, 3=splitter */
 	float2 center;
 	float rotation;
 	struct affector *next;
@@ -48,7 +48,7 @@ SDL_Texture *texBase;
 SDL_Texture *texProjectile;
 SDL_Texture *texParticle;
 SDL_Texture *texBarricade[3];
-SDL_Texture *texAffector[3];
+SDL_Texture *texAffector[4];
 
 base_t leftBase = {
 	{ 92, 75, 255, 255 },
@@ -481,26 +481,30 @@ void battle_simulation()
 				if(len <= 16) { // 32 diameter
 					// we crashen in an affector
 					
-					if(a->type == 2) {
+					if(a->type == 2 || a->type == 3) {
 						// and this affector is a booster
 						printf("BOOST!\n");
 						
-						float2 dir = {
-							24 * cos(DEG_TO_RAD(a->rotation)),
-							24 * sin(DEG_TO_RAD(a->rotation)),
-						};
-						
+						int offset[] = { 0, -45, 45 };
+						int len = (a->type == 3) ? 3 : 1;
 						float speed = 1.5 * length(p->vel);
 						
-						float2 xvel = dir;
-						xvel.x *= speed / 24;
-						xvel.y *= speed / 24;
-						
-						anyProjectileAlive = true;
-						fire_projectile(
-							p->base, 
-							(float2){ a->center.x + dir.x, a->center.y + dir.y }, 
-							xvel);
+						for(int i = 0; i < len; i++) {
+							float2 dir = {
+								24 * cos(DEG_TO_RAD(a->rotation + offset[i])),
+								24 * sin(DEG_TO_RAD(a->rotation + offset[i])),
+							};
+							
+							float2 xvel = dir;
+							xvel.x *= speed / 24;
+							xvel.y *= speed / 24;
+							
+							anyProjectileAlive = true;
+							fire_projectile(
+								p->base, 
+								(float2){ a->center.x + dir.x, a->center.y + dir.y }, 
+								xvel);
+						}
 					}
 					
 					p->active = false;
@@ -661,13 +665,15 @@ void battle_reset()
 
 void player_build()
 {
-	affector_t *booster;
+	affector_t *booster, *splitter;
 	
 	create_affector(0, (float2){ 512, 360 - 100 }); // positive affector
 	create_affector(1, (float2){ 512, 360 + 100 }); // positive affector
 	booster = create_affector(2, (float2){ 360, 260 }); // positive affector
-	
 	booster->rotation = 45;
+	
+	splitter = create_affector(3, (float2){ 360, 460 }); // positive affector
+	splitter->rotation = -45;
 }
 
 void start_round()
@@ -792,6 +798,7 @@ void load_resources()
 	LOAD(texAffector[0], "tex/positive-affector.png");
 	LOAD(texAffector[1], "tex/negative-affector.png");
 	LOAD(texAffector[2], "tex/boost-affector.png");
+	LOAD(texAffector[3], "tex/split-affector.png");
 #undef LOAD
 }
 
