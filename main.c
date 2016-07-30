@@ -8,6 +8,8 @@
 #define RAD_TO_DEG(x) ((x) * 180.0 / M_PI)
 #define DEG_TO_RAD(x) ((x) * M_PI / 180.0)
 
+#define AFFECTOR_TYPE_COUNT 5
+
 typedef struct {
 	float x, y;
 } float2;
@@ -15,6 +17,7 @@ typedef struct {
 typedef struct {
 	SDL_Color color;
 	int protectors[13];
+	int resources[AFFECTOR_TYPE_COUNT];
 } base_t;
 
 typedef struct particle {
@@ -45,19 +48,24 @@ SDL_Renderer *renderer;
 
 SDL_Texture *texPlayArea;
 SDL_Texture *texBase;
+SDL_Texture *texNumbers;
+SDL_Texture *texLeftPanel;
+SDL_Texture *texRightPanel;
 SDL_Texture *texProjectile;
 SDL_Texture *texParticle;
 SDL_Texture *texBarricade[3];
-SDL_Texture *texAffector[5];
+SDL_Texture *texAffector[AFFECTOR_TYPE_COUNT];
 
 base_t leftBase = {
 	{ 92, 75, 255, 255 },
-	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
+	{ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 },
+	{ 5, 4, 3, 2, 1},
 };
 
 base_t rightBase = {
 	{ 85, 182, 74, 255 },
-	{ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 }
+	{ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 },
+	{ 5, 5, 5, 5, 5},
 };
 
 particle_t *particles = NULL;
@@ -377,6 +385,28 @@ void player_aim(base_t *player)
 				SDL_FLIP_NONE);
 		}
 		
+		
+		{ // Draw closed tool panels
+			SDL_Rect leftPanel = {
+				0, 0, 128, 720
+			};
+			SDL_RenderCopy(
+				renderer,
+				texLeftPanel,
+				NULL,
+				&leftPanel);
+				
+			SDL_Rect rightPanel = {
+				battleground.x + battleground.w, 0, 128, 720
+			};
+			SDL_RenderCopy(
+				renderer,
+				texRightPanel,
+				NULL,
+				&rightPanel);
+		}
+		
+		
 		SDL_RenderPresent(renderer);
 		
 		while(SDL_GetTicks() < nextFrameTime) {
@@ -644,6 +674,27 @@ void battle_simulation()
 		
 		render_battleground();
 		
+		{ // Draw closed tool panels
+			SDL_Rect leftPanel = {
+				0, 0, 128, 720
+			};
+			SDL_RenderCopy(
+				renderer,
+				texLeftPanel,
+				NULL,
+				&leftPanel);
+				
+			SDL_Rect rightPanel = {
+				battleground.x + battleground.w, 0, 128, 720
+			};
+			SDL_RenderCopy(
+				renderer,
+				texRightPanel,
+				NULL,
+				&rightPanel);
+		}
+		
+		
 		SDL_RenderPresent(renderer);
 		
 		while(SDL_GetTicks() < nextFrameTime) {
@@ -674,8 +725,9 @@ void battle_reset()
 	affectors = NULL;
 }
 
-void player_build()
+void player_build(base_t *player)
 {
+	//*
 	affector_t *booster, *splitter;
 	
 	create_affector(0, (float2){ 512, 360 - 100 }); // positive affector
@@ -687,7 +739,95 @@ void player_build()
 	splitter->rotation = -75;
 	
 	splitter = create_affector(4, (float2){ 260, 260 }); // positive affector
-	splitter->rotation = -45;
+	splitter->rotation = -45;;
+	// */
+	
+	
+	SDL_Event e;
+	uint32_t nextFrameTime = 0;
+	
+	base_t * currentPlayer = &leftBase;
+	
+	while(true)
+	{
+		float dt = 1.0 / 60.0;
+		
+		while(SDL_PollEvent(&e))
+		{
+			if(e.type == SDL_QUIT) return;
+			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) return;
+		}
+		
+		SDL_SetRenderDrawColor(renderer, 128, 128, 128, 255);
+		SDL_RenderClear(renderer);
+		
+		render_battleground();
+		
+		{ // Draw closed tool panels
+			SDL_Rect leftPanel = {
+				0, 0, 128, 720
+			};
+			if(player == &leftBase) {
+				
+				SDL_Rect target = {
+					32, 32, 64, 64
+				};
+				for(int i = 0; i < AFFECTOR_TYPE_COUNT; i++) {
+					int count = player->resources[i];
+					if(count <= 0) {
+						continue;
+					}
+				
+					SDL_RenderCopy(
+						renderer,
+						texAffector[i],
+						NULL,
+						&target);
+					
+					SDL_Rect number = {
+						target.x + 48, target.y + 48,
+						16, 16
+					};
+					SDL_Rect numberSrc = {
+						16 * count, 0,
+						16, 16
+					};
+					SDL_RenderCopy(
+						renderer,
+						texNumbers,
+						&numberSrc,
+						&number);
+				
+					target.y += 96;
+				}
+			
+			} else {
+				SDL_RenderCopy(
+					renderer,
+					texLeftPanel,
+					NULL,
+					&leftPanel);
+			}
+				
+			SDL_Rect rightPanel = {
+				battleground.x + battleground.w, 0, 128, 720
+			};
+			if(player != &rightBase) {
+				SDL_RenderCopy(
+					renderer,
+					texRightPanel,
+					NULL,
+					&rightPanel);
+			}
+		}
+		
+		SDL_RenderPresent(renderer);
+		
+		while(SDL_GetTicks() < nextFrameTime) {
+			; // BURN!
+		}
+		nextFrameTime = SDL_GetTicks() + 15;
+	}
 }
 
 void start_round()
@@ -696,7 +836,7 @@ void start_round()
 	{
 		// todo: player_build()
 		fprintf(stdout, "Battle setup...\n");
-		player_build();
+		player_build(&leftBase);
 	
 		fprintf(stdout, "Start aiming...\n");
 		player_aim(&leftBase);
@@ -804,6 +944,9 @@ void load_resources()
 	}
 	LOAD(texPlayArea, "tex/play-area.png");
 	LOAD(texBase, "tex/base.png");
+	LOAD(texNumbers, "tex/numbers.png");
+	LOAD(texLeftPanel, "tex/left-panel.png");
+	LOAD(texRightPanel, "tex/right-panel.png");
 	LOAD(texParticle, "tex/particles.png");
 	LOAD(texProjectile, "tex/projectile.png");
 	LOAD(texBarricade[0], "tex/barricade-0.png");
