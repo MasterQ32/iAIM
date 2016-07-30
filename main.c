@@ -9,6 +9,9 @@
 #define DEG_TO_RAD(x) ((x) * M_PI / 180.0)
 
 #define AFFECTOR_TYPE_COUNT 5
+#define AFFECTOR_LIFE 3
+
+// todo: insert levels with blockades
 
 typedef struct {
 	float x, y;
@@ -40,6 +43,7 @@ typedef struct affector {
 	int type; /* -1=removed, 0=positive, 1=negative, 2=boost, 3=splitter3, 4=splitter2 */
 	float2 center;
 	float rotation;
+	int lifepoints;
 	struct affector *next;
 } affector_t;
 
@@ -542,9 +546,8 @@ void battle_simulation()
 				if(len <= 16) { // 32 diameter
 					// we crashen in an affector
 					
-					if(a->type >= 2 && a->type <= 4) {
+					if(a->lifepoints-- > 0 && a->type >= 2 && a->type <= 4) {
 						// and this affector is a booster
-						printf("BOOST!\n");
 						
 						int offset[] = { 0, -45, 45 };
 						int len = 0;
@@ -774,8 +777,9 @@ void player_build(base_t *player)
 		
 		while(SDL_PollEvent(&e))
 		{
-			if(e.type == SDL_QUIT) return;
-			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) return;
+			if(e.type == SDL_QUIT) exit(1);
+			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) exit(1);
+			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_SPACE) return;
 			
 			if(e.type == SDL_MOUSEBUTTONDOWN)
 			{
@@ -1082,7 +1086,8 @@ void start_round()
 	base_t *player = &leftBase;
 	while(true)
 	{
-		// todo: player_build()
+		// todo: give player items per round here...
+		
 		fprintf(stdout, "Battle setup...\n");
 		player_build(player);
 	
@@ -1156,6 +1161,7 @@ affector_t * create_affector(int type, float2 pos)
 	a->type = type; /* 0=positive, 1=negative */
 	a->center = pos;
 	a->rotation = 0;
+	a->lifepoints = AFFECTOR_LIFE;
 	a->next = affectors;
 	
 	affectors = a;
