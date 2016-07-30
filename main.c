@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <sys/param.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 
@@ -59,10 +60,20 @@ SDL_Rect battleground = {
 	1280 - 256, 720
 };
 
-float distance(float2 a, float2 b)
-{
-	return sqrt((a.x-b.x)*(a.x-b.x) + (a.y-b.y)*(a.y-b.y));
-}
+float distance(float2 a, float2 b);
+
+// Returns 1 if the lines intersect, otherwise 0. In addition, if the lines 
+// intersect the intersection point may be stored in the floats i_x and i_y.
+bool get_line_intersection(
+	float2 p0, float2 p1,
+	float2 p2, float2 p3);
+
+bool check_collision(
+	float2 start,
+	float2 end,
+	float2 center,
+	float2 size,
+	float rot);
 
 void load_resources();
 
@@ -73,6 +84,8 @@ void start_round();
 void spawn_particle(base_t const * base, int x, int y, float rot);
 
 void fire_projectile(base_t const * base, float2 pos, float2 vel);
+
+
 
 int main(int argc, char **argv)
 {
@@ -418,6 +431,19 @@ void battle_simulation()
 				p->active = false;
 			}
 			
+			if(p->active == false) {
+				continue;
+			}
+			
+			float2 delta = {
+				p->vel.x * dt,
+				p->vel.y * dt,
+			};
+			float2 newPos = {
+				p->pos.x + delta.x,
+				p->pos.y + delta.y,
+			};
+			
 			for(int i = 0; i < 13; i++) {
 				int baseRadius = 136;
 			
@@ -430,7 +456,19 @@ void battle_simulation()
 						30,
 					};
 					float a = -15 * i - 90;
-					// todo: check if left base protector was hit.
+					
+					bool hit = check_collision(
+						p->pos,
+						newPos,
+						(float2){ target.x, target.y },
+						(float2){ target.w, target.h },
+						a);
+					if(hit != false) {
+						leftBase.protectors[i] -= 1;
+						// todo: play sound
+						p->active = false;
+						break;
+					}
 				}
 				
 				if(rightBase.protectors[i] > 0) {
@@ -441,8 +479,30 @@ void battle_simulation()
 						30,
 					};
 					float a = 15 * i - 90;
-					// todo: check if right base protector was hit.
+					bool hit = check_collision(
+						p->pos,
+						newPos,
+						(float2){ target.x, target.y },
+						(float2){ target.w, target.h },
+						a);
+					if(hit != false) {
+						rightBase.protectors[i] -= 1;
+						// todo: play sound
+						p->active = false;
+						break;
+					}
 				}
+			}
+			
+			// Spawn particles on the way of moving, even if we aren't active any more
+			float rot = 90 - RAD_TO_DEG(atan2(p->vel.x, p->vel.y));
+			int cnt = 3 + sqrt(delta.x*delta.x + delta.y*delta.y);
+			for(int i = 0; i < cnt; i++) {
+				float2 ppos = {
+					p->pos.x + i * delta.x / (cnt - 1),
+					p->pos.y + i * delta.y / (cnt - 1),
+				};
+				spawn_particle(p->base, ppos.x, ppos.y, rot);
 			}
 			
 			if(p->active == false) {
@@ -451,24 +511,8 @@ void battle_simulation()
 			
 			anyProjectileAlive = true;
 			
-			float2 delta = {
-				p->vel.x * dt,
-				p->vel.y * dt,
-			};
-			
 			p->pos.x += delta.x;
 			p->pos.y += delta.y;
-			
-			// Spawn particles on the way of moving
-			float rot = 90 - RAD_TO_DEG(atan2(p->vel.x, p->vel.y));
-			int cnt = 3 + sqrt(delta.x*delta.x + delta.y*delta.y);
-			for(int i = 0; i < cnt; i++) {
-				float2 ppos = {
-					p->pos.x - i * delta.x / (cnt - 1),
-					p->pos.y - i * delta.y / (cnt - 1),
-				};
-				spawn_particle(p->base, ppos.x, ppos.y, rot);
-			}
 		}
 		
 		if(anyProjectileAlive == false) {
@@ -614,4 +658,136 @@ void load_resources()
 	LOAD(texBarricade[1], "tex/barricade-1.png");
 	LOAD(texBarricade[2], "tex/barricade-2.png");
 #undef LOAD
+}
+
+
+float distance(float2 a, float2 b)
+{
+	return sqrt((a.x-b.x)*(a.x-b.x) + (a.y-b.y)*(a.y-b.y));
+}
+
+
+// Given three colinear points p, q, r, the function checks if
+// point q lies on line segment 'pr'
+static bool onSegment(float2 p, float2 q, float2 r)
+{
+    if (q.x <= MAX(p.x, r.x) && q.x >= MIN(p.x, r.x) &&
+        q.y <= MAX(p.y, r.y) && q.y >= MIN(p.y, r.y))
+       return true;
+    return false;
+}
+ 
+// To find orientation of ordered triplet (p, q, r).
+// The function returns following values
+// 0 --> p, q and r are colinear
+// 1 --> Clockwise
+// 2 --> Counterclockwise
+static int orientation(float2 p, float2 q, float2 r)
+{
+    // See http://www.geeksforgeeks.org/orientation-3-ordered-points/
+    // for details of below formula.
+    int val = (q.y - p.y) * (r.x - q.x) -
+              (q.x - p.x) * (r.y - q.y);
+    if (val == 0) return 0;  // colinear
+    return (val > 0)? 1: 2; // clock or counterclock wise
+}
+
+// The main function that returns true if line segment 'p1q1'
+// and 'p2q2' intersect.
+bool get_line_intersection(
+	float2 p1, float2 q1, 
+	float2 p2, float2 q2)
+{
+	// Find the four orientations needed for general and
+	// special cases
+	int o1 = orientation(p1, q1, p2);
+	int o2 = orientation(p1, q1, q2);
+	int o3 = orientation(p2, q2, p1);
+	int o4 = orientation(p2, q2, q1);
+
+	// General case
+	if (o1 != o2 && o3 != o4)
+		return true;
+
+	// Special Cases
+	// p1, q1 and p2 are colinear and p2 lies on segment p1q1
+	if (o1 == 0 && onSegment(p1, p2, q1)) return true;
+
+	// p1, q1 and p2 are colinear and q2 lies on segment p1q1
+	if (o2 == 0 && onSegment(p1, q2, q1)) return true;
+
+	// p2, q2 and p1 are colinear and p1 lies on segment p2q2
+	if (o3 == 0 && onSegment(p2, p1, q2)) return true;
+
+	// p2, q2 and q1 are colinear and q1 lies on segment p2q2
+	if (o4 == 0 && onSegment(p2, q1, q2)) return true;
+
+	return false; // Doesn't fall in any of the above cases
+}
+
+bool check_collision(
+	float2 start,
+	float2 end,
+	float2 center,
+	float2 size,
+	float rot)
+{
+	size.x /= 2;
+	size.y /= 2;
+	
+	rot = DEG_TO_RAD(rot);
+	
+	float2 points[] = {
+		{ // top-left
+			-size.x,
+			-size.y
+		},
+		{ // top-right
+			size.x,
+			-size.y
+		},
+		{ // bottom-right
+			size.x,
+			size.y
+		},
+		{ // bottom-left
+			-size.x,
+			size.y
+		},
+	};
+	for(int i = 0; i < 4; i++) {
+		float2 np = {
+			points[i].x * cos(rot) - points[i].y * sin(rot),
+			points[i].x * sin(rot) + points[i].y * cos(rot),
+		};
+		points[i].x = center.x + np.x;
+		points[i].y = center.y + np.y;
+	}
+	
+	// SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+	
+	for(int i = 0; i < 4; i++) {
+		/*
+		SDL_RenderDrawLine(
+			renderer,
+			points[i].x,
+			points[i].y,
+			points[(i+1)%4].x,
+			points[(i+1)%4].y);
+		*/
+		bool hit = get_line_intersection(
+			points[i], points[(i+1)%4],
+			start, end);
+		if(hit) return true;
+	}
+	// SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+	/*
+	SDL_RenderDrawLine(
+		renderer,
+    start.x,
+		start.y,
+		end.x,
+		end.y);
+	*/
+	return false;
 }
