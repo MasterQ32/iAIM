@@ -279,18 +279,6 @@ void player_aim(base_t *player)
 	{
 		float dt = 1.0 / 60.0;
 		
-		a += 90.0 * d * dt;
-		
-		// bounces
-		if(a > 165.0) {
-			a = 165.0;
-			d = -1;
-		}
-		else if(a < 15.0) {
-			a = 15.0;
-			d = 1;
-		}
-		
 		SDL_Event e;
 		while(SDL_PollEvent(&e))
 		{
@@ -300,11 +288,17 @@ void player_aim(base_t *player)
 			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_SPACE) {
 				
 				float2 pos = {
-					battleground.x + baseRadius * sinf(DEG_TO_RAD(a)) - 6,
+					baseRadius * sinf(DEG_TO_RAD(a)) - 6,
 					battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(a)) - 6,
 				};
-			
-				fire_projectile(player, pos, (float2){100.0, 50.0 });
+				float2 vel = {					
+					sinf(DEG_TO_RAD(a)),
+					cosf(DEG_TO_RAD(a)),
+				};
+				vel.x *= 250;
+				vel.y *= 250;
+				
+				fire_projectile(player, pos, vel);
 				return;
 			}
 		}
@@ -318,7 +312,7 @@ void player_aim(base_t *player)
 			setTextureColor(player, texProjectile);
 	
 			SDL_Rect target = {
-				baseRadius * sinf(DEG_TO_RAD(a)) - 6,
+				battleground.x + baseRadius * sinf(DEG_TO_RAD(a)) - 6,
 				battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(a)) - 6,
 				11,
 				11
@@ -340,26 +334,24 @@ void player_aim(base_t *player)
 			; // BURN!
 		}
 		nextFrameTime = SDL_GetTicks() + 15;
+		
+		
+		a += 90.0 * d * dt;
+		
+		// bounces
+		if(a > 165.0) {
+			a = 165.0;
+			d = -1;
+		}
+		else if(a < 15.0) {
+			a = 15.0;
+			d = 1;
+		}
 	}
 }
 
-void start_round()
+void battle_simulation()
 {
-	while(true)
-	{
-		// todo: player_build()
-	
-		fprintf(stdout, "Start aiming...\n");
-		player_aim(&leftBase);
-		
-		// todo: battle_simulation()
-		
-		// todo: battle_reset()
-		
-		// todo: switch_player()
-	}
-
-
 	SDL_Event e;
 	uint32_t nextFrameTime = 0;
 	
@@ -398,11 +390,22 @@ void start_round()
 		}
 		
 		// second: tick all projectiles
+		bool anyProjectileAlive = false;
 		for(projectile_t *p = projectiles; p != NULL; p = p->next)
 		{
+			// disable all out-of-screen projectiles
+			if(p->pos.x < -10 || p->pos.y < -10) {
+				p->active = false;
+			}
+			if(p->pos.x >= (battleground.w + 10) || p->pos.y >= (battleground.h + 10)) {
+				p->active = false;
+			}
+		
 			if(p->active == false) {
 				continue;
 			}
+			
+			anyProjectileAlive = true;
 			
 			float2 delta = {
 				p->vel.x * dt,
@@ -414,7 +417,7 @@ void start_round()
 			
 			// Spawn particles on the way of moving
 			float rot = 90 - RAD_TO_DEG(atan2(p->vel.x, p->vel.y));
-			int cnt = 1 + sqrt(delta.x*delta.x + delta.y*delta.y);
+			int cnt = 3 + sqrt(delta.x*delta.x + delta.y*delta.y);
 			for(int i = 0; i < cnt; i++) {
 				float2 ppos = {
 					p->pos.x - i * delta.x / (cnt - 1),
@@ -423,15 +426,15 @@ void start_round()
 				spawn_particle(p->base, ppos.x, ppos.y, rot);
 			}
 		}
+		
+		if(anyProjectileAlive == false) {
+			return;
+		}
 	
 		while(SDL_PollEvent(&e))
 		{
 			if(e.type == SDL_QUIT) return;
 			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) return;
-			
-			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_f) {
-				fire_projectile(&leftBase, (float2){ 100, 100 }, (float2){100.0, 50.0 });
-			}
 		}
 		
 		SDL_SetRenderDrawColor(renderer, 0, 0, 128, 255);
@@ -445,6 +448,38 @@ void start_round()
 			; // BURN!
 		}
 		nextFrameTime = SDL_GetTicks() + 15;
+	}
+
+}
+
+void battle_reset()
+{
+	for(projectile_t *p = projectiles; p != NULL; )
+	{
+		projectile_t *k = p;
+		p = p->next;
+		free(k);
+	}
+	projectiles = NULL;
+}
+
+void start_round()
+{
+	while(true)
+	{
+		// todo: player_build()
+	
+		fprintf(stdout, "Start aiming...\n");
+		player_aim(&leftBase);
+		
+		// todo: 
+		fprintf(stdout, "Battle simulation...\n");
+		battle_simulation();
+		
+		fprintf(stdout, "Reset battle...\n");
+		battle_reset();
+		
+		// todo: switch_player()
 	}
 }
 
