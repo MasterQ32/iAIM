@@ -43,12 +43,12 @@ SDL_Texture *texBarricade[3];
 
 base_t leftBase = {
 	{ 92, 75, 255, 255 },
-	{ 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0 }
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
 };
 
 base_t rightBase = {
 	{ 85, 182, 74, 255 },
-	{ 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0 }
+	{ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 }
 };
 
 particle_t *particles = NULL;
@@ -58,7 +58,12 @@ SDL_Rect battleground = {
 	128, 0,
 	1280 - 256, 720
 };
-	
+
+float distance(float2 a, float2 b)
+{
+	return sqrt((a.x-b.x)*(a.x-b.x) + (a.y-b.y)*(a.y-b.y));
+}
+
 void load_resources();
 
 void menu();
@@ -357,8 +362,6 @@ void battle_simulation()
 	
 	base_t * currentPlayer = &leftBase;
 	
-	int stage = 0;
-	
 	while(true)
 	{
 		float dt = 1.0 / 60.0;
@@ -400,7 +403,48 @@ void battle_simulation()
 			if(p->pos.x >= (battleground.w + 10) || p->pos.y >= (battleground.h + 10)) {
 				p->active = false;
 			}
-		
+			
+			float2 leftBasePos = { 0, battleground.h / 2 };
+			float2 rightBasePos = { battleground.w, battleground.h / 2 };
+			
+			if(distance(p->pos, leftBasePos) <= 126) {
+				// hit left base
+				printf("left base hit!\n");
+				p->active = false;
+			}
+			if(distance(p->pos, rightBasePos) <= 126) {
+				// hit right base
+				printf("right base hit!\n");
+				p->active = false;
+			}
+			
+			for(int i = 0; i < 13; i++) {
+				int baseRadius = 136;
+			
+				// left base
+				if(leftBase.protectors[i] > 0) {
+					SDL_Rect target = {
+						baseRadius * sinf(DEG_TO_RAD(15 * i)) - 6,
+						battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(15 * i)) - 15,
+						12,
+						30,
+					};
+					float a = -15 * i - 90;
+					// todo: check if left base protector was hit.
+				}
+				
+				if(rightBase.protectors[i] > 0) {
+					SDL_Rect target = {
+						battleground.w - baseRadius * sinf(DEG_TO_RAD(15 * i)) - 6,
+						battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(15 * i)) - 15,
+						12,
+						30,
+					};
+					float a = 15 * i - 90;
+					// todo: check if right base protector was hit.
+				}
+			}
+			
 			if(p->active == false) {
 				continue;
 			}
