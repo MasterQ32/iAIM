@@ -33,6 +33,13 @@ typedef struct projectile {
 	struct projectile * next;
 } projectile_t;
 
+typedef struct affector {
+	int type; /* 0=positive, 1=negative */
+	float2 center;
+	float rotation;
+	struct affector *next;
+} affector_t;
+
 SDL_Window *window;
 SDL_Renderer *renderer;
 
@@ -41,6 +48,7 @@ SDL_Texture *texBase;
 SDL_Texture *texProjectile;
 SDL_Texture *texParticle;
 SDL_Texture *texBarricade[3];
+SDL_Texture *texAffector[2];
 
 base_t leftBase = {
 	{ 92, 75, 255, 255 },
@@ -54,6 +62,7 @@ base_t rightBase = {
 
 particle_t *particles = NULL;
 projectile_t *projectiles = NULL;
+affector_t *affectors = NULL;
 
 SDL_Rect battleground = {
 	128, 0,
@@ -61,6 +70,7 @@ SDL_Rect battleground = {
 };
 
 float distance(float2 a, float2 b);
+float length(float2 a);
 
 // Returns 1 if the lines intersect, otherwise 0. In addition, if the lines 
 // intersect the intersection point may be stored in the floats i_x and i_y.
@@ -85,6 +95,7 @@ void spawn_particle(base_t const * base, int x, int y, float rot);
 
 void fire_projectile(base_t const * base, float2 pos, float2 vel);
 
+void create_affector(int type, float2 pos);
 
 
 int main(int argc, char **argv)
@@ -220,6 +231,26 @@ void render_battleground()
 				NULL,
 				&target,
 				15 * i - 90,
+				NULL,
+				SDL_FLIP_NONE);
+		}
+	}
+	
+	// Draw affectors
+	{		
+		for(affector_t *p = affectors; p != NULL; p = p->next)
+		{
+			SDL_Rect target = {
+				battleground.x + p->center.x - 32, p->center.y - 32,
+				64, 64
+			};
+		
+			SDL_RenderCopyEx(
+				renderer,
+				texAffector[p->type],
+				NULL,
+				&target,
+				p->rotation,
 				NULL,
 				SDL_FLIP_NONE);
 		}
@@ -435,9 +466,47 @@ void battle_simulation()
 				continue;
 			}
 			
+			float2 accel = { 0 };
+			
+			for(affector_t *a = affectors; a != NULL; a = a->next)
+			{
+				float2 dst = {
+					p->pos.x - a->center.x,
+					p->pos.y - a->center.y,
+				};
+				float len = length(dst);
+				dst.x /= len;
+				dst.y /= len;
+				
+				if(len <= 0) {
+					continue;
+				}
+				
+				float strength = 2000.0 / len;
+				strength *= strength;
+				
+				dst.x *= strength;
+				dst.y *= strength;
+				
+				switch(a->type) {
+					case 0:
+						accel.x -= dst.x;
+						accel.y -= dst.y;
+						break;
+					case 1:
+						accel.x += dst.x;
+						accel.y += dst.y;
+						break;
+				}
+			}
+			
+			float2 vel = p->vel;
+			vel.x += accel.x * dt;
+			vel.y += accel.y * dt;
+			
 			float2 delta = {
-				p->vel.x * dt,
-				p->vel.y * dt,
+				vel.x * dt,
+				vel.y * dt,
 			};
 			float2 newPos = {
 				p->pos.x + delta.x,
@@ -511,6 +580,7 @@ void battle_simulation()
 			
 			anyProjectileAlive = true;
 			
+			p->vel = vel;
 			p->pos.x += delta.x;
 			p->pos.y += delta.y;
 		}
@@ -549,6 +619,21 @@ void battle_reset()
 		free(k);
 	}
 	projectiles = NULL;
+	
+	
+	for(affector_t *p = affectors; p != NULL; )
+	{
+		affector_t *k = p;
+		p = p->next;
+		free(k);
+	}
+	affectors = NULL;
+}
+
+void player_build()
+{
+	create_affector(0, (float2){ 512, 360 - 100 }); // positive affector
+	create_affector(1, (float2){ 512, 360 + 100 }); // positive affector
 }
 
 void start_round()
@@ -556,6 +641,8 @@ void start_round()
 	while(true)
 	{
 		// todo: player_build()
+		fprintf(stdout, "Battle setup...\n");
+		player_build();
 	
 		fprintf(stdout, "Start aiming...\n");
 		player_aim(&leftBase);
@@ -617,7 +704,16 @@ void fire_projectile(base_t const * base, float2 pos, float2 vel)
 	projectiles = p;
 }
 
-
+void create_affector(int type, float2 pos)
+{
+	affector_t *a = malloc(sizeof(affector_t));
+	a->type = type; /* 0=positive, 1=negative */
+	a->center = pos;
+	a->rotation = 0;
+	a->next = affectors;
+	
+	affectors = a;
+}
 
 
 
@@ -657,6 +753,8 @@ void load_resources()
 	LOAD(texBarricade[0], "tex/barricade-0.png");
 	LOAD(texBarricade[1], "tex/barricade-1.png");
 	LOAD(texBarricade[2], "tex/barricade-2.png");
+	LOAD(texAffector[0], "tex/positive-affector.png");
+	LOAD(texAffector[1], "tex/negative-affector.png");
 #undef LOAD
 }
 
@@ -664,6 +762,11 @@ void load_resources()
 float distance(float2 a, float2 b)
 {
 	return sqrt((a.x-b.x)*(a.x-b.x) + (a.y-b.y)*(a.y-b.y));
+}
+
+float length(float2 a)
+{
+	return sqrt(a.x*a.x + a.y*a.y);
 }
 
 
