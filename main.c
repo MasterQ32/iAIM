@@ -834,8 +834,8 @@ void player_build(base_t *player)
 					if(currentAffector != NULL)
 					{							
 						float2 pos = {
-							48 * sinf(DEG_TO_RAD(currentAffector->rotation)),
-							-48 * cosf(DEG_TO_RAD(currentAffector->rotation)),
+							48 * cosf(DEG_TO_RAD(-currentAffector->rotation)),
+							-48 * sinf(DEG_TO_RAD(-currentAffector->rotation)),
 						};
 						pos.x += currentAffector->center.x;
 						pos.y += currentAffector->center.y;
@@ -928,7 +928,7 @@ void player_build(base_t *player)
 						e.motion.y - currentAffector->center.y,
 					};
 					
-					currentAffector->rotation = 180 - RAD_TO_DEG(atan2(delta.x, delta.y));
+					currentAffector->rotation = 90 - RAD_TO_DEG(atan2(delta.x, delta.y));
 				}
 				if(currentAffector != NULL && isMoving)
 				{
@@ -1070,8 +1070,8 @@ void player_build(base_t *player)
 				192, 192, 192, 255);
 				
 			float2 pos = {
-				48 * sinf(DEG_TO_RAD(currentAffector->rotation)),
-				-48 * cosf(DEG_TO_RAD(currentAffector->rotation)),
+				48 * cosf(DEG_TO_RAD(-currentAffector->rotation)),
+				-48 * sinf(DEG_TO_RAD(-currentAffector->rotation)),
 			};
 			pos.x += currentAffector->center.x;
 			pos.y += currentAffector->center.y;
