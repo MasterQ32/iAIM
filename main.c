@@ -14,8 +14,6 @@
 
 #define BASE_LIFEPOINTS 4
 
-// todo: insert levels with blockades
-
 typedef struct {
 	float x, y;
 } float2;
@@ -65,6 +63,7 @@ SDL_Texture *texBase;
 SDL_Texture *texBaseShips;
 SDL_Texture *texMetal;
 SDL_Texture *texNumbers;
+SDL_Texture *texBackPanel;
 SDL_Texture *texLeftPanel;
 SDL_Texture *texRightPanel;
 SDL_Texture *texProjectile;
@@ -1027,6 +1026,11 @@ void player_build(base_t *player)
 			};
 			if(player == &leftBase) {
 				
+				SDL_RenderCopy(
+					renderer,
+					texBackPanel,
+					NULL,
+					&leftPanel);
 				SDL_Rect target = {
 					32, 32, 64, 64
 				};
@@ -1072,6 +1076,11 @@ void player_build(base_t *player)
 			};
 			if(player == &rightBase) {
 				
+				SDL_RenderCopy(
+					renderer,
+					texBackPanel,
+					NULL,
+					&rightPanel);
 				SDL_Rect target = {
 					battleground.x + battleground.w + 32, 32, 
 					64, 64
@@ -1324,6 +1333,7 @@ void load_resources()
 	LOAD(texBaseShips, "tex/base-bg.png");
 	LOAD(texNumbers, "tex/numbers.png");
 	LOAD(texMetal, "tex/metalbackground.png");
+	LOAD(texBackPanel, "tex/sidepanel.png");
 	LOAD(texLeftPanel, "tex/left-panel.png");
 	LOAD(texRightPanel, "tex/right-panel.png");
 	LOAD(texParticle, "tex/particles.png");
