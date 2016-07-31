@@ -180,6 +180,18 @@ int main(int argc, char **argv)
 	return 0;
 }
 
+void menu_select(int i)
+{
+	switch(i)
+	{
+		case 0:
+			start_round("levels/04.txt");
+			break;
+		case 1: help(); break;
+		case 2: credits(); break;
+		case 3: exit(1);
+	}
+}
 
 void menu()
 {	
@@ -204,16 +216,39 @@ void menu()
 						break;
 					case SDLK_RETURN:
 					case SDLK_SPACE:
-						switch(currentSelection)
-						{
-							case 0:
-								start_round("levels/04.txt");
-								break;
-							case 1: help(); break;
-							case 2: credits(); break;
-							case 3: exit(1);
-						}
+						menu_select(currentSelection);
 						break;
+				}
+			}
+			
+			if(e.type == SDL_MOUSEMOTION)
+			{
+				for(int i = 0; i < 4; i++) {
+					SDL_Rect selector = {
+						527, 433 + 55 * i,
+						226, 40,
+					};
+					if(e.motion.x >= selector.x && e.motion.x < (selector.x + selector.w)  && 
+						 e.motion.y >= selector.y && e.motion.y < (selector.y + selector.h))
+					{
+						currentSelection = i;
+					}
+				}
+			}
+			
+			if(e.type == SDL_MOUSEBUTTONDOWN)
+			{
+				for(int i = 0; i < 4; i++) {
+					SDL_Rect selector = {
+						527, 433 + 55 * i,
+						226, 40,
+					};
+					if(e.button.x >= selector.x && e.button.x < (selector.x + selector.w)  && 
+						 e.button.y >= selector.y && e.button.y < (selector.y + selector.h))
+					{
+						menu_select(i);
+						break;
+					}
 				}
 			}
 		}
@@ -274,6 +309,7 @@ void help()
 		{
 			if(e.type == SDL_QUIT) exit(1);
 			if(e.type == SDL_KEYDOWN) return;
+			if(e.type == SDL_MOUSEBUTTONDOWN) return;
 		}
 		
 		SDL_SetRenderDrawColor(renderer, 0, 0, 128, 255);
