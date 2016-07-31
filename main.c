@@ -47,6 +47,11 @@ typedef struct affector {
 	struct affector *next;
 } affector_t;
 
+typedef struct block {
+	SDL_Rect rect;
+	struct block *next;
+} block_t;
+
 SDL_Window *window;
 SDL_Renderer *renderer;
 
@@ -75,6 +80,7 @@ base_t rightBase = {
 particle_t *particles = NULL;
 projectile_t *projectiles = NULL;
 affector_t *affectors = NULL;
+block_t *blockchain = NULL;
 
 SDL_Rect battleground = {
 	128, 0,
@@ -109,6 +115,7 @@ void fire_projectile(base_t const * base, float2 pos, float2 vel);
 
 affector_t * create_affector(int type, float2 pos);
 
+void load_level(const char *file);
 
 int main(int argc, char **argv)
 {
@@ -147,6 +154,7 @@ int main(int argc, char **argv)
 
 void menu()
 {
+	load_level("levels/04.txt");
 	start_round();
 }
 
@@ -201,6 +209,18 @@ void render_battleground()
 			texBase,
 			&sourceRect,
 			&rightBaseRect);
+	}
+	
+	for(block_t *b = blockchain; b != NULL; b = b->next)
+	{
+		SDL_Rect rect = b->rect;
+		rect.x += battleground.x;
+		
+		SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+		SDL_RenderFillRect(renderer, &rect);
+		
+		SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
+		SDL_RenderDrawRect(renderer, &rect);
 	}
 	
 	// draw base protectors.
@@ -1109,14 +1129,32 @@ void start_round()
 	}
 }
 
+void load_level(const char *file)
+{
+	FILE *f = fopen(file, "r");
 
-
-
-
-
-
-
-
+	fscanf(f, "iAIM Level 1.0\n");
+	if(ferror(f)) {
+		fprintf(stderr, "Failed to load level %s\n", file);
+		exit(1);
+	}
+	
+	while(!feof(f))
+	{
+		SDL_Rect block;
+		fscanf(f, "%d,%d,%d,%d", &block.x, &block.y, &block.w, &block.h);
+		if(ferror(f)) {
+			fprintf(stderr, "Failed to load level %s\n", file);
+			exit(1);
+		}
+		
+		block_t *b = malloc(sizeof(block_t));
+		b->next = blockchain;
+		b->rect = block;
+		blockchain = b;
+	}
+	fclose(f);
+}
 
 
 
