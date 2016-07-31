@@ -641,52 +641,74 @@ void battle_simulation()
 				p->pos.y + delta.y,
 			};
 			
-			for(int i = 0; i < 13; i++) {
-				int baseRadius = 136;
-			
-				// left base
-				if(leftBase.protectors[i] > 0) {
-					SDL_Rect target = {
-						baseRadius * sinf(DEG_TO_RAD(15 * i)) - 6,
-						battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(15 * i)) - 15,
-						12,
-						30,
-					};
-					float a = -15 * i - 90;
-					
-					bool hit = check_collision(
-						p->pos,
-						newPos,
-						(float2){ target.x, target.y },
-						(float2){ target.w, target.h },
-						a);
-					if(hit != false) {
-						leftBase.protectors[i] -= 1;
-						// todo: play sound
-						p->active = false;
-						break;
-					}
-				}
+			// check collision against blocks
+			for(block_t *b = blockchain; b != NULL; b = b->next)
+			{
+				SDL_Rect rect = b->rect;
 				
-				if(rightBase.protectors[i] > 0) {
-					SDL_Rect target = {
-						battleground.w - baseRadius * sinf(DEG_TO_RAD(15 * i)) - 6,
-						battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(15 * i)) - 15,
-						12,
-						30,
-					};
-					float a = 15 * i - 90;
-					bool hit = check_collision(
+				bool hit = check_collision(
 						p->pos,
 						newPos,
-						(float2){ target.x, target.y },
-						(float2){ target.w, target.h },
-						a);
-					if(hit != false) {
-						rightBase.protectors[i] -= 1;
-						// todo: play sound
-						p->active = false;
-						break;
+						(float2){ rect.x, rect.y },
+						(float2){ rect.w, rect.h },
+						0.0);
+				
+				if(hit) {
+					p->active = false;
+					break;
+				}
+			}
+			
+			if(p->active)
+			{
+				// check collision against protectors
+				for(int i = 0; i < 13; i++) {
+					int baseRadius = 136;
+				
+					// left base
+					if(leftBase.protectors[i] > 0) {
+						SDL_Rect target = {
+							baseRadius * sinf(DEG_TO_RAD(15 * i)) - 6,
+							battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(15 * i)) - 15,
+							12,
+							30,
+						};
+						float a = -15 * i - 90;
+						
+						bool hit = check_collision(
+							p->pos,
+							newPos,
+							(float2){ target.x, target.y },
+							(float2){ target.w, target.h },
+							a);
+						if(hit != false) {
+							leftBase.protectors[i] -= 1;
+							// todo: play sound
+							p->active = false;
+							break;
+						}
+					}
+					
+					if(rightBase.protectors[i] > 0) {
+						SDL_Rect target = {
+							battleground.w - baseRadius * sinf(DEG_TO_RAD(15 * i)) - 6,
+							battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(15 * i)) - 15,
+							12,
+							30,
+						};
+						float a = 15 * i - 90;
+						bool hit = check_collision(
+							p->pos,
+							newPos,
+							(float2){ target.x, target.y },
+							(float2){ target.w, target.h },
+							a);
+						if(hit != false) {
+							rightBase.protectors[i] -= 1;
+							// todo: play sound
+							p->active = false;
+							break;
+						}
 					}
 				}
 			}
@@ -1360,8 +1382,8 @@ bool check_collision(
 			points[i].x * cos(rot) - points[i].y * sin(rot),
 			points[i].x * sin(rot) + points[i].y * cos(rot),
 		};
-		points[i].x = center.x + np.x;
-		points[i].y = center.y + np.y;
+		points[i].x = center.x + np.x + size.x;
+		points[i].y = center.y + np.y + size.y;
 	}
 	
 	// SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
