@@ -63,6 +63,7 @@ SDL_Renderer *renderer;
 SDL_Texture *texPlayArea;
 SDL_Texture *texBase;
 SDL_Texture *texBaseShips;
+SDL_Texture *texMetal;
 SDL_Texture *texNumbers;
 SDL_Texture *texLeftPanel;
 SDL_Texture *texRightPanel;
@@ -72,6 +73,8 @@ SDL_Texture *texBarricade[3];
 SDL_Texture *texAffector[AFFECTOR_TYPE_COUNT];
 
 int cooldowns[AFFECTOR_TYPE_COUNT] = AFFECTOR_COOLDOWNS;
+
+int framecounter = 0;
 
 base_t leftBase = {
 	{ 92, 75, 255, 255 },
@@ -214,12 +217,6 @@ void render_battleground()
 			texBaseShips,
 			&sourceRect,
 			&leftBaseRect);
-		SDL_SetTextureAlphaMod(texBase, 255 * leftBase.lifepoints / BASE_LIFEPOINTS);
-		SDL_RenderCopy(
-			renderer,
-			texBase,
-			&sourceRect,
-			&leftBaseRect);
 			
 		// setTextureColor(&rightBase, texBase);
 		sourceRect.x = 0;
@@ -228,12 +225,33 @@ void render_battleground()
 			texBaseShips,
 			&sourceRect,
 			&rightBaseRect);
-		SDL_SetTextureAlphaMod(texBase, 255 * rightBase.lifepoints / BASE_LIFEPOINTS);
-		SDL_RenderCopy(
+		
+		leftBaseRect.x -= 128;
+		leftBaseRect.w += 128;
+		
+		rightBaseRect.w += 128;
+			
+		SDL_SetTextureAlphaMod(texBase, 255 * leftBase.lifepoints / BASE_LIFEPOINTS);
+		SDL_RenderCopyEx(
 			renderer,
 			texBase,
-			&sourceRect,
-			&rightBaseRect);
+			NULL,
+			&leftBaseRect,
+			framecounter / 8.0,
+			NULL,
+			SDL_FLIP_NONE);
+		
+		SDL_SetTextureAlphaMod(texBase, 255 * rightBase.lifepoints / BASE_LIFEPOINTS);
+		SDL_RenderCopyEx(
+			renderer,
+			texBase,
+			NULL,
+			&rightBaseRect,
+			-framecounter / 6.0,
+			NULL,
+			SDL_FLIP_NONE);
+			
+		framecounter += 1;
 	}
 	
 	for(block_t *b = blockchain; b != NULL; b = b->next)
@@ -241,9 +259,10 @@ void render_battleground()
 		SDL_Rect rect = b->rect;
 		rect.x += battleground.x;
 		
-		SDL_SetRenderDrawColor(renderer, 128, 128, 128, 255);
-		SDL_RenderFillRect(renderer, &rect);
-		
+		// SDL_SetRenderDrawColor(renderer, 128, 128, 128, 255);
+		// SDL_RenderFillRect(renderer, &rect);
+		SDL_RenderCopy(renderer, texMetal, &rect, &rect);
+			
 		SDL_SetRenderDrawColor(renderer, 96, 96, 96, 255);
 		SDL_RenderDrawRect(renderer, &rect);
 	}
@@ -804,9 +823,8 @@ void battle_simulation()
 				&rightPanel);
 		}
 		
-		
 		SDL_RenderPresent(renderer);
-		
+			
 		while(SDL_GetTicks() < nextFrameTime) {
 			; // BURN!
 		}
@@ -1305,6 +1323,7 @@ void load_resources()
 	LOAD(texBase, "tex/base.png");
 	LOAD(texBaseShips, "tex/base-bg.png");
 	LOAD(texNumbers, "tex/numbers.png");
+	LOAD(texMetal, "tex/metalbackground.png");
 	LOAD(texLeftPanel, "tex/left-panel.png");
 	LOAD(texRightPanel, "tex/right-panel.png");
 	LOAD(texParticle, "tex/particles.png");
