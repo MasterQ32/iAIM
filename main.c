@@ -58,6 +58,9 @@ typedef struct block {
 SDL_Window *window;
 SDL_Renderer *renderer;
 
+/**
+ * Ingame textures
+ **/
 SDL_Texture *texPlayArea;
 SDL_Texture *texBase;
 SDL_Texture *texBaseShips;
@@ -70,6 +73,14 @@ SDL_Texture *texProjectile;
 SDL_Texture *texParticle;
 SDL_Texture *texBarricade[3];
 SDL_Texture *texAffector[AFFECTOR_TYPE_COUNT];
+
+/**
+ * Mainmenu textures
+ **/
+SDL_Texture *texMenuBackground;
+SDL_Texture *texMenuItems;
+SDL_Texture *texMenuSelector;
+SDL_Texture *texMenuHelp;
 
 int cooldowns[AFFECTOR_TYPE_COUNT] = AFFECTOR_COOLDOWNS;
 
@@ -121,7 +132,11 @@ void load_resources();
 
 void menu();
 
-void start_round();
+void help();
+
+void credits();
+
+void start_round(const char *level);
 
 void spawn_particle(base_t const * base, int x, int y, float rot);
 
@@ -167,10 +182,120 @@ int main(int argc, char **argv)
 
 
 void menu()
-{
-	load_level("levels/04.txt");
-	start_round();
+{	
+	int currentSelection = 0;
+	while(true)
+	{
+		SDL_Event e;
+		while(SDL_PollEvent(&e))
+		{
+			if(e.type == SDL_QUIT) exit(1);
+			
+			if(e.type == SDL_KEYDOWN)
+			{
+				switch(e.key.keysym.sym)
+				{
+					case SDLK_ESCAPE: exit(1);
+					case SDLK_UP:
+						if(currentSelection > 0) currentSelection--; 
+						break;
+					case SDLK_DOWN:
+						if(currentSelection < 3) currentSelection++;
+						break;
+					case SDLK_RETURN:
+					case SDLK_SPACE:
+						switch(currentSelection)
+						{
+							case 0:
+								start_round("levels/04.txt");
+								break;
+							case 1: help(); break;
+							case 2: credits(); break;
+							case 3: exit(1);
+						}
+						break;
+				}
+			}
+		}
+		
+		SDL_SetRenderDrawColor(renderer, 0, 0, 128, 255);
+		SDL_RenderClear(renderer);
+		
+		SDL_Rect fullscreen = {
+			0, 0,
+			1280, 720,
+		};
+		
+		SDL_Rect menuitems = {
+			549, 435,
+			180, 206,
+		};
+		
+		SDL_Rect selector = {
+			527, 433 + 55 * currentSelection,
+			226, 40,
+		};
+		
+		SDL_RenderCopy(
+			renderer,
+			texMenuBackground,
+			NULL,
+			&fullscreen);
+		SDL_RenderCopy(
+			renderer,
+			texMenuSelector,
+			NULL,
+			&selector);
+		SDL_RenderCopy(
+			renderer,
+			texMenuItems,
+			NULL,
+			&menuitems);
+		
+		SDL_RenderPresent(renderer);
+	
+		SDL_Delay(16);
+	}
+	
+
 }
+
+void credits()
+{
+
+}
+
+void help()
+{
+	while(true)
+	{
+		SDL_Event e;
+		while(SDL_PollEvent(&e))
+		{
+			if(e.type == SDL_QUIT) exit(1);
+			if(e.type == SDL_KEYDOWN) return;
+		}
+		
+		SDL_SetRenderDrawColor(renderer, 0, 0, 128, 255);
+		SDL_RenderClear(renderer);
+		
+		SDL_Rect fullscreen = {
+			0, 0,
+			1280, 720,
+		};
+		
+		
+		SDL_RenderCopy(
+			renderer,
+			texMenuHelp,
+			NULL,
+			&fullscreen);
+		
+		SDL_RenderPresent(renderer);
+	
+		SDL_Delay(16);
+	}
+}	
 
 void setTextureColor(base_t const * b, SDL_Texture *tex)
 {
@@ -1184,8 +1309,10 @@ void player_build(base_t *player)
 	}
 }
 
-void start_round()
+void start_round(const char *level)
 {
+	load_level(level);
+
 	base_t *player = &leftBase;
 	while(true)
 	{
@@ -1346,6 +1473,11 @@ void load_resources()
 	LOAD(texAffector[2], "tex/boost-affector.png");
 	LOAD(texAffector[3], "tex/split3-affector.png");
 	LOAD(texAffector[4], "tex/split2-affector.png");
+	
+	LOAD(texMenuBackground, "tex/mainmenu-bg.png");
+	LOAD(texMenuItems, "tex/mainmenu-items.png");
+	LOAD(texMenuSelector, "tex/mainmenu-selector.png");
+	LOAD(texMenuHelp, "tex/helpmenu.png");
 #undef LOAD
 }
 
