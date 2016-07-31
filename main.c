@@ -10,6 +10,9 @@
 
 #define AFFECTOR_TYPE_COUNT 5
 #define AFFECTOR_LIFE 3
+#define AFFECTOR_COOLDOWNS { 1, 1, 1, 4, 3 }
+
+#define BASE_LIFEPOINTS 4
 
 // todo: insert levels with blockades
 
@@ -21,6 +24,8 @@ typedef struct {
 	SDL_Color color;
 	int protectors[13];
 	int resources[AFFECTOR_TYPE_COUNT];
+	int respawn[AFFECTOR_TYPE_COUNT];
+	int lifepoints;
 } base_t;
 
 typedef struct particle {
@@ -57,6 +62,7 @@ SDL_Renderer *renderer;
 
 SDL_Texture *texPlayArea;
 SDL_Texture *texBase;
+SDL_Texture *texBaseShips;
 SDL_Texture *texNumbers;
 SDL_Texture *texLeftPanel;
 SDL_Texture *texRightPanel;
@@ -65,16 +71,22 @@ SDL_Texture *texParticle;
 SDL_Texture *texBarricade[3];
 SDL_Texture *texAffector[AFFECTOR_TYPE_COUNT];
 
+int cooldowns[AFFECTOR_TYPE_COUNT] = AFFECTOR_COOLDOWNS;
+
 base_t leftBase = {
 	{ 92, 75, 255, 255 },
 	{ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 },
-	{ 5, 4, 3, 2, 1},
+	{ 0, 0, 0, 0, 0 },
+	AFFECTOR_COOLDOWNS,
+	BASE_LIFEPOINTS
 };
 
 base_t rightBase = {
 	{ 85, 182, 74, 255 },
 	{ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 },
-	{ 5, 5, 5, 5, 5},
+	{ 0, 0, 0, 0, 0 },
+	AFFECTOR_COOLDOWNS,
+	BASE_LIFEPOINTS
 };
 
 particle_t *particles = NULL;
@@ -163,6 +175,7 @@ void setTextureColor(base_t const * b, SDL_Texture *tex)
 	SDL_SetTextureColorMod(tex, b->color.r, b->color.g, b->color.b);
 }
 
+
 void render_battleground()
 {
 	SDL_RenderSetClipRect(renderer, &battleground);
@@ -194,16 +207,28 @@ void render_battleground()
 			128, 256
 		};
 		
-		setTextureColor(&leftBase, texBase);
+		// setTextureColor(&leftBase, texBase);
 		sourceRect.x = 128;
+		SDL_RenderCopy(
+			renderer,
+			texBaseShips,
+			&sourceRect,
+			&leftBaseRect);
+		SDL_SetTextureAlphaMod(texBase, 255 * leftBase.lifepoints / BASE_LIFEPOINTS);
 		SDL_RenderCopy(
 			renderer,
 			texBase,
 			&sourceRect,
 			&leftBaseRect);
 			
-		setTextureColor(&rightBase, texBase);
+		// setTextureColor(&rightBase, texBase);
 		sourceRect.x = 0;
+		SDL_RenderCopy(
+			renderer,
+			texBaseShips,
+			&sourceRect,
+			&rightBaseRect);
+		SDL_SetTextureAlphaMod(texBase, 255 * rightBase.lifepoints / BASE_LIFEPOINTS);
 		SDL_RenderCopy(
 			renderer,
 			texBase,
@@ -216,10 +241,10 @@ void render_battleground()
 		SDL_Rect rect = b->rect;
 		rect.x += battleground.x;
 		
-		SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+		SDL_SetRenderDrawColor(renderer, 128, 128, 128, 255);
 		SDL_RenderFillRect(renderer, &rect);
 		
-		SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
+		SDL_SetRenderDrawColor(renderer, 96, 96, 96, 255);
 		SDL_RenderDrawRect(renderer, &rect);
 	}
 	
@@ -525,6 +550,9 @@ void battle_simulation()
 		bool anyProjectileAlive = false;
 		for(projectile_t *p = projectiles; p != NULL; p = p->next)
 		{
+			if(p->active == false) {
+				continue;
+			}
 			// disable all out-of-screen projectiles
 			if(p->pos.x < -10 || p->pos.y < -10) {
 				p->active = false;
@@ -538,12 +566,18 @@ void battle_simulation()
 			
 			if(distance(p->pos, leftBasePos) <= 126) {
 				// hit left base
-				printf("left base hit!\n");
+				leftBase.lifepoints--;
+				if(leftBase.lifepoints < 0) {
+					printf("right player has won. do something about it!\n");
+				}
 				p->active = false;
 			}
 			if(distance(p->pos, rightBasePos) <= 126) {
 				// hit right base
-				printf("right base hit!\n");
+				rightBase.lifepoints--;
+				if(rightBase.lifepoints < 0) {
+					printf("left player has won. do something about it!\n");
+				}
 				p->active = false;
 			}
 			
@@ -575,7 +609,7 @@ void battle_simulation()
 						switch(a->type) {
 							case 2: 
 								len = 1; 
-								speed *= 2.0;
+								speed *= 1.5;
 								break;
 							case 3: len = 3; break;
 							case 4: len = 2; 
@@ -916,7 +950,7 @@ void player_build(base_t *player)
 			if(e.type == SDL_MOUSEBUTTONUP)
 			{
 				if(draggingAffector >= 0) {
-					if(e.button.x >= battleground.x) {
+					if(e.button.x >= battleground.x && e.button.x < battleground.x + battleground.w) {
 						affector_t *a = create_affector(draggingAffector, (float2){e.button.x - 128, e.button.y});
 						if(player == &rightBase) {
 							a->rotation = 180;
@@ -1128,7 +1162,15 @@ void start_round()
 	base_t *player = &leftBase;
 	while(true)
 	{
-		// todo: give player items per round here...
+		fprintf(stdout, "Resupplement...\n");
+		for(int i = 0; i < AFFECTOR_TYPE_COUNT; i++) 
+		{
+			player->respawn[i] -= 1;
+			if(player->respawn[i] <= 0) {
+				player->resources[i] += 1;
+				player->respawn[i] = cooldowns[i];
+			}
+		}
 		
 		fprintf(stdout, "Battle setup...\n");
 		player_build(player);
@@ -1261,6 +1303,7 @@ void load_resources()
 	}
 	LOAD(texPlayArea, "tex/play-area.png");
 	LOAD(texBase, "tex/base.png");
+	LOAD(texBaseShips, "tex/base-bg.png");
 	LOAD(texNumbers, "tex/numbers.png");
 	LOAD(texLeftPanel, "tex/left-panel.png");
 	LOAD(texRightPanel, "tex/right-panel.png");
