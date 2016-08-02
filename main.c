@@ -73,6 +73,11 @@ SDL_Texture *texProjectile;
 SDL_Texture *texParticle;
 SDL_Texture *texBarricade[3];
 SDL_Texture *texAffector[AFFECTOR_TYPE_COUNT];
+SDL_Texture *texButtonLaunch[3];
+
+#define BUTTON_NORMAL 0
+#define BUTTON_HOVER  1
+#define BUTTON_PRESSED 2
 
 /**
  * Mainmenu textures
@@ -570,7 +575,8 @@ void player_aim(base_t *player)
 			if(e.type == SDL_QUIT) exit(1);
 			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) exit(1);
 			
-			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_SPACE) {
+			if((e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_SPACE) ||
+			   (e.type == SDL_MOUSEBUTTONDOWN)) {
 				
 				float2 pos, vel;
 				if(player == &leftBase) {
@@ -1151,6 +1157,20 @@ void player_build(base_t *player)
 					isMoving = 0;
 					SDL_SetRelativeMouseMode(SDL_FALSE);
 				}
+				
+				SDL_Rect button = {
+					16, 668,
+					96, 36
+				};
+				if(player == &rightBase) {
+					button.x += battleground.x + battleground.w;
+				}
+				if(e.button.x >= button.x && e.button.x < (button.x + button.w) &&
+					 e.button.y >= button.y && e.button.y < (button.y + button.h)) 
+				{
+					// On click: finish!
+					return;
+				}
 			}
 			
 			if(e.type == SDL_MOUSEMOTION);
@@ -1284,6 +1304,37 @@ void player_build(base_t *player)
 					NULL,
 					&rightPanel);
 			}
+		}
+		
+		{ // Launch Button
+			int x,y;
+			int buttons = SDL_GetMouseState(&x, &y);
+			
+			SDL_Rect button = {
+				16, 668,
+				96, 36
+			};
+			if(player == &rightBase) {
+				button.x += battleground.x + battleground.w;
+			}
+			SDL_Texture *tex = texButtonLaunch[BUTTON_NORMAL];
+			
+			if(x >= button.x && x < (button.x + button.w) &&
+			   y >= button.y && y < (button.y + button.h)) 
+			{
+				if(buttons & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+					tex = texButtonLaunch[BUTTON_PRESSED];
+				} else {
+					tex = texButtonLaunch[BUTTON_HOVER];
+				}
+			}
+			
+			
+			SDL_RenderCopy(
+				renderer,
+				tex,
+				NULL,
+				&button);
 		}
 		
 		if(draggingAffector >= 0)
@@ -1491,6 +1542,12 @@ void load_resources()
 		fprintf(stderr, "Failed to load " img ": %s\n", IMG_GetError()); \
 		exit(1); \
 	}
+#define BUTTON(tex, img, imgp) \
+	LOAD(tex[BUTTON_NORMAL],  img "normal" imgp); \
+	LOAD(tex[BUTTON_HOVER],   img "hover" imgp); \
+	LOAD(tex[BUTTON_PRESSED], img "press" imgp)
+	
+	
 	LOAD(texPlayArea, "tex/play-area.png");
 	LOAD(texBase, "tex/base.png");
 	LOAD(texBaseShips, "tex/base-bg.png");
@@ -1514,6 +1571,10 @@ void load_resources()
 	LOAD(texMenuItems, "tex/mainmenu-items.png");
 	LOAD(texMenuSelector, "tex/mainmenu-selector.png");
 	LOAD(texMenuHelp, "tex/helpmenu.png");
+	
+	BUTTON(texButtonLaunch, "tex/launch-button-", ".png");
+	
+#undef BUTTON
 #undef LOAD
 }
 
