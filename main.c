@@ -1321,8 +1321,8 @@ void player_build(base_t *player)
 						pos.y += currentAffector->center.y;
 						
 						SDL_Rect grabbag = {
-							battleground.x + pos.x - 4, pos.y - 4,
-							8, 8
+							battleground.x + pos.x - 6, pos.y - 6,
+							12, 12
 						};
 						
 						if(e.button.x >= grabbag.x && e.button.y >= grabbag.y &&
@@ -1616,8 +1616,8 @@ void player_build(base_t *player)
 				battleground.x + pos.x, pos.y);
 			
 			SDL_Rect grabbag = {
-				battleground.x + pos.x - 4, pos.y - 4,
-				8, 8
+				battleground.x + pos.x - 6, pos.y - 6,
+				12, 12
 			};
 			if(isRotating) {
 				SDL_SetRenderDrawColor(
