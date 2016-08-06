@@ -76,6 +76,10 @@ SDL_Texture *texBarricade[3];
 SDL_Texture *texAffector[AFFECTOR_TYPE_COUNT];
 SDL_Texture *texButtonLaunch[3];
 
+SDL_Texture *texLevelBackground;
+SDL_Texture *texLevelSelector;
+SDL_Texture *texLevels[4];
+
 #define BUTTON_NORMAL 0
 #define BUTTON_HOVER  1
 #define BUTTON_PRESSED 2
@@ -99,6 +103,8 @@ Mix_Chunk *sndImpactWall;
 
 
 int cooldowns[AFFECTOR_TYPE_COUNT] = AFFECTOR_COOLDOWNS;
+
+bool isGameRunning = false;
 
 int framecounter = 0;
 
@@ -217,12 +223,148 @@ int main(int argc, char **argv)
 	return 0;
 }
 
+void select_level_id(int i)
+{
+	char name[256];
+	sprintf(name, "levels/%02d.txt", i);
+	fprintf(stdout, "Start round: %s\n", name);
+	start_round(name);
+}
+
+void select_level()
+{
+	int currentSelection = 0;
+	while(true)
+	{
+		SDL_Event e;
+		while(SDL_PollEvent(&e))
+		{
+			if(e.type == SDL_QUIT) exit(1);
+			
+			if(e.type == SDL_KEYDOWN)
+			{
+				switch(e.key.keysym.sym)
+				{
+					case SDLK_ESCAPE: return;
+					case SDLK_UP:
+						if(currentSelection > 1) currentSelection -= 2; 
+						break;
+					case SDLK_DOWN:
+						if(currentSelection < 2) currentSelection += 2;
+						break;
+					case SDLK_LEFT:
+						currentSelection = (currentSelection&(~1)) + 0;
+						break;
+					case SDLK_RIGHT:
+						currentSelection = (currentSelection&(~1)) + 1;
+						break;
+					case SDLK_RETURN:
+					case SDLK_SPACE:
+						if(currentSelection < 4) {
+							select_level_id(currentSelection + 1);
+						} else {
+							return;
+						}
+						break;
+				}
+			}
+			
+			if(e.type == SDL_MOUSEMOTION)
+			{
+				for(int i = 0; i < 4; i++) {
+					SDL_Rect selector = {
+						218 + 424 * (i % 2),
+						63 + 299 * (i / 2),
+						420,
+						295
+					};
+					if(e.motion.x >= selector.x && e.motion.x < (selector.x + selector.w)  && 
+						 e.motion.y >= selector.y && e.motion.y < (selector.y + selector.h))
+					{
+						currentSelection = i;
+					}
+				}
+			}
+			
+			if(e.type == SDL_MOUSEBUTTONDOWN)
+			{
+				for(int i = 0; i < 4; i++) {
+					SDL_Rect selector = {
+						218 + 424 * (i % 2),
+						63 + 299 * (i / 2),
+						420,
+						295
+					};
+					if(e.button.x >= selector.x && e.button.x < (selector.x + selector.w)  && 
+						 e.button.y >= selector.y && e.button.y < (selector.y + selector.h))
+					{
+						select_level_id(i + 1);
+						break;
+					}
+				}
+			}
+		}
+		
+		SDL_SetRenderDrawColor(renderer, 0, 0, 128, 255);
+		SDL_RenderClear(renderer);
+		
+		SDL_Rect fullscreen = {
+			0, 0,
+			1280, 720,
+		};
+		
+		SDL_RenderCopy(
+			renderer,
+			texLevelBackground,
+			NULL,
+			&fullscreen);
+		for(int i = 0; i < 4; i++)
+		{
+			SDL_Rect selector = {
+				218 + 424 * (i % 2),
+				63 + 299 * (i / 2),
+				420,
+				295
+			};
+			if(currentSelection == i) {
+				SDL_SetTextureAlphaMod(texLevels[i], 255);
+			} else {
+				SDL_SetTextureAlphaMod(texLevels[i], 76);
+			}
+			if(currentSelection == i) {
+				selector.x -= 2;
+				selector.y -= 2;
+				selector.w += 4;
+				selector.h += 4;
+				SDL_RenderCopy(
+					renderer,
+					texLevelSelector,
+					NULL,
+					&selector);
+				selector.x += 2;
+				selector.y += 2;
+				selector.w -= 4;
+				selector.h -= 4;
+			} 
+			SDL_RenderCopy(
+				renderer,
+				texLevels[i],
+				NULL,
+				&selector);
+		}
+		SDL_RenderPresent(renderer);
+	
+		SDL_Delay(16);
+	}
+}
+
 void menu_select(int i)
 {
 	switch(i)
 	{
 		case 0:
-			start_round("levels/04.txt");
+			// start_round("levels/04.txt");
+			select_level();
 			break;
 		case 1: help(); break;
 		case 2: credits(); break;
@@ -588,7 +730,7 @@ void render_battleground()
 	SDL_RenderSetClipRect(renderer, NULL);
 }
 
-void player_aim(base_t *player)
+bool player_aim(base_t *player)
 {
 	uint32_t nextFrameTime = 0;
 	
@@ -604,8 +746,8 @@ void player_aim(base_t *player)
 		SDL_Event e;
 		while(SDL_PollEvent(&e))
 		{
-			if(e.type == SDL_QUIT) exit(1);
-			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) exit(1);
+			if(e.type == SDL_QUIT) exit(0);
+			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) return false;
 			
 			if((e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_SPACE) ||
 			   (e.type == SDL_MOUSEBUTTONDOWN)) {
@@ -635,7 +777,7 @@ void player_aim(base_t *player)
 				
 				Mix_PlayChannel(-1, sndLaunch, 0);
 				fire_projectile(player, pos, vel);
-				return;
+				return true;
 			}
 		}
 		
@@ -1002,8 +1144,11 @@ void battle_simulation()
 	
 		while(SDL_PollEvent(&e))
 		{
-			if(e.type == SDL_QUIT) return;
-			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) return;
+			if(e.type == SDL_QUIT) exit(1);
+			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
+				isGameRunning = false;
+				return;
+			}
 		}
 		
 		SDL_SetRenderDrawColor(renderer, 0, 0, 128, 255);
@@ -1079,8 +1224,11 @@ void player_build(base_t *player)
 		
 		while(SDL_PollEvent(&e))
 		{
-			if(e.type == SDL_QUIT) exit(1);
-			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) exit(1);
+			if(e.type == SDL_QUIT) exit(0);
+			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
+				isGameRunning = false;
+				return;
+			}
 			if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_SPACE) return;
 			
 			if(e.type == SDL_MOUSEBUTTONDOWN)
@@ -1443,8 +1591,13 @@ void start_round(const char *level)
 	load_level(level);
 
 	base_t *player = &leftBase;
+	isGameRunning = true;
 	while(true)
 	{
+		fprintf(stdout, "Reset battle...\n");
+		battle_reset();
+		if(isGameRunning == false) return;
+		
 		fprintf(stdout, "Resupplement...\n");
 		for(int i = 0; i < AFFECTOR_TYPE_COUNT; i++) 
 		{
@@ -1455,18 +1608,18 @@ void start_round(const char *level)
 			}
 		}
 		
-		fprintf(stdout, "Battle setup...\n");
-		player_build(player);
-	
-		fprintf(stdout, "Start aiming...\n");
-		player_aim(player);
+		do {
+			fprintf(stdout, "Battle setup...\n");
+			player_build(player);
+			if(isGameRunning == false) return;
+		
+			fprintf(stdout, "Start aiming...\n");
+		} while(player_aim(player) == false);
 		
 		// todo: 
 		fprintf(stdout, "Battle simulation...\n");
 		battle_simulation();
-		
-		fprintf(stdout, "Reset battle...\n");
-		battle_reset();
+		if(isGameRunning == false) return;
 		
 		if(player == &leftBase) {
 			player = &rightBase;
@@ -1486,6 +1639,15 @@ void load_level(const char *file)
 		exit(1);
 	}
 	
+	// clean current level first:
+	for(block_t *b = blockchain; b != NULL;)
+	{
+		block_t *t = b;
+		b = b->next;
+		free(t);
+	}
+	blockchain = NULL;
+	
 	while(!feof(f))
 	{
 		SDL_Rect block;
@@ -1502,13 +1664,6 @@ void load_level(const char *file)
 	}
 	fclose(f);
 }
-
-
-
-
-
-
-
 
 
 /**
@@ -1555,25 +1710,6 @@ affector_t * create_affector(int type, float2 pos)
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /**
  * Loads all resources used by the game.
  **/
@@ -1618,6 +1754,13 @@ void load_resources()
 	LOAD(texMenuItems, "tex/mainmenu-items.png");
 	LOAD(texMenuSelector, "tex/mainmenu-selector.png");
 	LOAD(texMenuHelp, "tex/helpmenu.png");
+	
+	LOAD(texLevelBackground, "tex/levelselection.png");
+	LOAD(texLevelSelector, "tex/level-selector.png");
+	LOAD(texLevels[0], "levels/01.png");
+	LOAD(texLevels[1], "levels/02.png");
+	LOAD(texLevels[2], "levels/03.png");
+	LOAD(texLevels[3], "levels/04.png");
 	
 	BUTTON(texButtonLaunch, "tex/launch-button-", ".png");
 	
@@ -1744,30 +1887,11 @@ bool check_collision(
 		points[i].y = center.y + np.y + size.y;
 	}
 	
-	// SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-	
 	for(int i = 0; i < 4; i++) {
-		/*
-		SDL_RenderDrawLine(
-			renderer,
-			points[i].x,
-			points[i].y,
-			points[(i+1)%4].x,
-			points[(i+1)%4].y);
-		*/
 		bool hit = get_line_intersection(
 			points[i], points[(i+1)%4],
 			start, end);
 		if(hit) return true;
 	}
-	// SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-	/*
-	SDL_RenderDrawLine(
-		renderer,
-    start.x,
-		start.y,
-		end.x,
-		end.y);
-	*/
 	return false;
 }
