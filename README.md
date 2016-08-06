@@ -49,10 +49,10 @@ To be done.
 This is a remake of a project i once saw on the GamesCom but now seems dead. Strategic 1:1 gravity battles.
 
 ## Credits
-This game uses resources from opengameart.org:
 
 ### Space Ships
 By MillionthVector (http://millionthvector.blogspot.de)
+*found via opengameart.org*
 
 ### Sounds
 SFXR (http://www.drpetter.se/project_sfxr.html)
