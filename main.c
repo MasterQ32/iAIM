@@ -79,6 +79,7 @@ SDL_Texture *texButtonLaunch[3];
 SDL_Texture *texLevelBackground;
 SDL_Texture *texLevelSelector;
 SDL_Texture *texLevels[4];
+SDL_Texture *texButtonBack[3];
 
 #define BUTTON_NORMAL 0
 #define BUTTON_HOVER  1
@@ -247,16 +248,26 @@ void select_level()
 				{
 					case SDLK_ESCAPE: return;
 					case SDLK_UP:
+						if(currentSelection == 4) break;
 						if(currentSelection > 1) currentSelection -= 2; 
 						break;
 					case SDLK_DOWN:
+						if(currentSelection == 4) break;
 						if(currentSelection < 2) currentSelection += 2;
 						break;
 					case SDLK_LEFT:
-						currentSelection = (currentSelection&(~1)) + 0;
+						if(currentSelection == 4) {
+							currentSelection = 3;
+						} else {
+							currentSelection = (currentSelection&(~1)) + 0;
+						}
 						break;
 					case SDLK_RIGHT:
-						currentSelection = (currentSelection&(~1)) + 1;
+						if(currentSelection == 1 || currentSelection == 3) {
+							currentSelection = 4;
+						} else {
+							currentSelection = (currentSelection&(~1)) + 1;
+						}
 						break;
 					case SDLK_RETURN:
 					case SDLK_SPACE:
@@ -286,7 +297,7 @@ void select_level()
 				}
 			}
 			
-			if(e.type == SDL_MOUSEBUTTONDOWN)
+			if(e.type == SDL_MOUSEBUTTONUP)
 			{
 				for(int i = 0; i < 4; i++) {
 					SDL_Rect selector = {
@@ -301,6 +312,16 @@ void select_level()
 						select_level_id(i + 1);
 						break;
 					}
+				}
+				
+				SDL_Rect button = {
+					1109, 615,
+					124, 44
+				};
+				if(e.button.x >= button.x && e.button.x < (button.x + button.w)  && 
+					 e.button.y >= button.y && e.button.y < (button.y + button.h))
+				{
+					return;
 				}
 			}
 		}
@@ -352,6 +373,35 @@ void select_level()
 				NULL,
 				&selector);
 		}
+		
+		{ // Launch Button
+			int x,y;
+			int buttons = SDL_GetMouseState(&x, &y);
+			
+			SDL_Rect button = {
+				1109, 615,
+				124, 44
+			};
+			SDL_Texture *tex = texButtonBack[BUTTON_NORMAL];
+			
+			if((x >= button.x && x < (button.x + button.w) &&
+			   y >= button.y && y < (button.y + button.h)) ||
+				 currentSelection == 4)
+			{
+				if(buttons & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+					tex = texButtonBack[BUTTON_PRESSED];
+				} else {
+					tex = texButtonBack[BUTTON_HOVER];
+				}
+			}
+			
+			SDL_RenderCopy(
+				renderer,
+				tex,
+				NULL,
+				&button);
+		}
+		
 		SDL_RenderPresent(renderer);
 	
 		SDL_Delay(16);
@@ -415,7 +465,7 @@ void menu()
 				}
 			}
 			
-			if(e.type == SDL_MOUSEBUTTONDOWN)
+			if(e.type == SDL_MOUSEBUTTONUP)
 			{
 				for(int i = 0; i < 4; i++) {
 					SDL_Rect selector = {
@@ -1763,6 +1813,7 @@ void load_resources()
 	LOAD(texLevels[3], "levels/04.png");
 	
 	BUTTON(texButtonLaunch, "tex/launch-button-", ".png");
+	BUTTON(texButtonBack, "tex/back-button-", ".png");
 	
 	SOUND(sndStartup, "sounds/startup.wav");
 	SOUND(sndLaunch, "sounds/launch.wav");
