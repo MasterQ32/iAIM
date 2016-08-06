@@ -1638,8 +1638,28 @@ void player_build(base_t *player)
 
 void start_round(const char *level)
 {
+	// Load level
 	load_level(level);
 
+	// Initialize game state	
+	leftBase = (base_t) {
+		{ 92, 75, 255, 255 },
+		{ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 },
+		{ 0, 0, 0, 0, 0 },
+		AFFECTOR_COOLDOWNS,
+		BASE_LIFEPOINTS
+	};
+
+	rightBase = (base_t) {
+		{ 85, 182, 74, 255 },
+		{ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 },
+		{ 0, 0, 0, 0, 0 },
+		AFFECTOR_COOLDOWNS,
+		BASE_LIFEPOINTS
+	};
+	
+	
+	// Start game
 	base_t *player = &leftBase;
 	isGameRunning = true;
 	while(true)
