@@ -1134,7 +1134,8 @@ void player_build(base_t *player)
 			if(e.type == SDL_MOUSEBUTTONUP)
 			{
 				if(draggingAffector >= 0) {
-					if(e.button.x >= battleground.x && e.button.x < battleground.x + battleground.w) {
+					fprintf(stderr, "%d,%d,%d\n", e.button.x, battleground.x, battleground.w);
+					if(e.button.x >= battleground.x && e.button.x < (battleground.x + battleground.w)) {
 						affector_t *a = create_affector(draggingAffector, (float2){e.button.x - 128, e.button.y});
 						if(player == &rightBase) {
 							a->rotation = 180;
@@ -1149,7 +1150,7 @@ void player_build(base_t *player)
 					isRotating = false;
 				}
 				if(isMoving) {
-					if(currentAffector != NULL && e.button.x <= battleground.x) {
+					if(currentAffector != NULL && (e.button.x <= battleground.x || e.button.x > (battleground.x + battleground.w))) {
 						player->resources[currentAffector->type] += 1; // return affector to inventory
 						currentAffector->type = -1;
 						currentAffector->center.x = -100000;
