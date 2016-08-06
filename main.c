@@ -105,6 +105,9 @@ SDL_Texture *texMenuHelp;
 
 SDL_Texture *texCredits;
 
+SDL_Texture *texFinalBlue;
+SDL_Texture *texFinalGreen;
+
 Mix_Chunk *sndStartup;
 Mix_Chunk *sndLaunch;
 Mix_Chunk *sndSplit2;
@@ -956,6 +959,36 @@ bool player_aim(base_t *player)
 	}
 }
 
+void endscreen(SDL_Texture *tex)
+{
+	isGameRunning = false;
+	
+	SDL_Rect fullscreen = {
+		0, 0,
+		1280, 720,
+	};
+	SDL_RenderCopy(
+		renderer,
+		tex,
+		NULL,
+		&fullscreen);
+	
+	SDL_RenderPresent(renderer);
+		
+	while(true)
+	{
+		SDL_Event e;
+		while(SDL_PollEvent(&e))
+		{
+			if(e.type == SDL_QUIT) exit(1);
+			if(e.type == SDL_KEYDOWN) return;
+			if(e.type == SDL_MOUSEBUTTONUP) return;
+		}
+	
+		SDL_Delay(16);
+	}
+}
+
 void battle_simulation()
 {
 	SDL_Event e;
@@ -1016,7 +1049,8 @@ void battle_simulation()
 				// hit left base
 				leftBase.lifepoints--;
 				if(leftBase.lifepoints < 0) {
-					printf("right player has won. do something about it!\n");
+					endscreen(texFinalGreen);
+					return;
 				}
 				p->active = false;
 			}
@@ -1025,7 +1059,8 @@ void battle_simulation()
 				// hit right base
 				rightBase.lifepoints--;
 				if(rightBase.lifepoints < 0) {
-					printf("left player has won. do something about it!\n");
+					endscreen(texFinalBlue);
+					return;
 				}
 				p->active = false;
 			}
@@ -1863,6 +1898,9 @@ void load_resources()
 	LOAD(texMenuHelp, "tex/helpmenu.png");
 	
 	LOAD(texCredits, "tex/credits.png");
+	
+	LOAD(texFinalBlue, "tex/winscreen-blue.png");
+	LOAD(texFinalGreen, "tex/winscreen-green.png");
 	
 	LOAD(texLevelBackground, "tex/levelselection.png");
 	LOAD(texLevelSelector, "tex/level-selector.png");
