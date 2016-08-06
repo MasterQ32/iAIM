@@ -1,10 +1,20 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include <sys/param.h>
+#if defined(_MSC_VER)
+#include <windows.h>
+#include <SDL.h>
+#include <SDL_image.h>
+#include <SDL_mixer.h>
+
+#define MAX max
+#define MIN min
+#else
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_mixer.h>
+#include <sys/param.h>
+#endif
 
 #define RAD_TO_DEG(x) ((x) * 180.0 / M_PI)
 #define DEG_TO_RAD(x) ((x) * M_PI / 180.0)
