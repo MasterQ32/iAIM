@@ -4,6 +4,7 @@
 #include <sys/param.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_mixer.h>
 
 #define RAD_TO_DEG(x) ((x) * 180.0 / M_PI)
 #define DEG_TO_RAD(x) ((x) * M_PI / 180.0)
@@ -87,6 +88,16 @@ SDL_Texture *texMenuItems;
 SDL_Texture *texMenuSelector;
 SDL_Texture *texMenuHelp;
 
+Mix_Chunk *sndStartup;
+Mix_Chunk *sndLaunch;
+Mix_Chunk *sndSplit2;
+Mix_Chunk *sndSplit3;
+Mix_Chunk *sndBoost;
+Mix_Chunk *sndImpactBarricade;
+Mix_Chunk *sndImpactBase;
+Mix_Chunk *sndImpactWall;
+
+
 int cooldowns[AFFECTOR_TYPE_COUNT] = AFFECTOR_COOLDOWNS;
 
 int framecounter = 0;
@@ -159,6 +170,23 @@ int main(int argc, char **argv)
 	}
 	atexit(SDL_Quit);
 	
+	if(IMG_Init(IMG_INIT_PNG) < 0) {
+		fprintf(stderr, "Failed to initialize IMG: %s\n", IMG_GetError());
+		exit(1);
+	}
+	atexit(IMG_Quit);
+	
+	if(Mix_Init(MIX_INIT_OGG) < 0) {
+		fprintf(stderr, "Failed to initialize MIX: %s\n", Mix_GetError());
+		exit(1);
+	}
+	atexit(Mix_Quit);
+	
+	if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 1024)==-1) {
+		printf("Mix_OpenAudio: %s\n", Mix_GetError());
+		exit(1);
+	}
+	
 	window = SDL_CreateWindow(
 		"iAIM",
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -180,7 +208,11 @@ int main(int argc, char **argv)
 	
 	load_resources();
 	
+	Mix_PlayChannel(-1, sndStartup, 0);
+	
 	menu();
+	
+	Mix_CloseAudio();
 	
 	return 0;
 }
@@ -601,6 +633,7 @@ void player_aim(base_t *player)
 				vel.x *= 250;
 				vel.y *= 250;
 				
+				Mix_PlayChannel(-1, sndLaunch, 0);
 				fire_projectile(player, pos, vel);
 				return;
 			}
@@ -750,6 +783,7 @@ void battle_simulation()
 			float2 rightBasePos = { battleground.w, battleground.h / 2 };
 			
 			if(distance(p->pos, leftBasePos) <= 126) {
+				Mix_PlayChannel(-1, sndImpactBase, 0);
 				// hit left base
 				leftBase.lifepoints--;
 				if(leftBase.lifepoints < 0) {
@@ -758,6 +792,7 @@ void battle_simulation()
 				p->active = false;
 			}
 			if(distance(p->pos, rightBasePos) <= 126) {
+				Mix_PlayChannel(-1, sndImpactBase, 0);
 				// hit right base
 				rightBase.lifepoints--;
 				if(rightBase.lifepoints < 0) {
@@ -795,9 +830,15 @@ void battle_simulation()
 							case 2: 
 								len = 1; 
 								speed *= 1.5;
+								Mix_PlayChannel(-1, sndBoost, 0);
 								break;
-							case 3: len = 3; break;
-							case 4: len = 2; 
+							case 3: 
+								Mix_PlayChannel(-1, sndSplit3, 0);
+								len = 3; 
+								break;
+							case 4:
+								Mix_PlayChannel(-1, sndSplit2, 0);
+								len = 2; 
 								offset[0] = -30;
 								offset[1] =  30;
 								break;
@@ -874,6 +915,7 @@ void battle_simulation()
 				
 				if(hit) {
 					p->active = false;
+					Mix_PlayChannel(-1, sndImpactWall, 0);
 					break;
 				}
 			}
@@ -902,7 +944,7 @@ void battle_simulation()
 							a);
 						if(hit != false) {
 							leftBase.protectors[i] -= 1;
-							// todo: play sound
+							Mix_PlayChannel(-1, sndImpactBarricade, 0);
 							p->active = false;
 							break;
 						}
@@ -924,7 +966,7 @@ void battle_simulation()
 							a);
 						if(hit != false) {
 							rightBase.protectors[i] -= 1;
-							// todo: play sound
+							Mix_PlayChannel(-1, sndImpactBarricade, 0);
 							p->active = false;
 							break;
 						}
@@ -1330,7 +1372,6 @@ void player_build(base_t *player)
 				}
 			}
 			
-			
 			SDL_RenderCopy(
 				renderer,
 				tex,
@@ -1543,6 +1584,11 @@ void load_resources()
 		fprintf(stderr, "Failed to load " img ": %s\n", IMG_GetError()); \
 		exit(1); \
 	}
+#define SOUND(snd, file) if((snd = Mix_LoadWAV(file)) == NULL) \
+	{ \
+		fprintf(stderr, "Failed to load " file ": %s\n", Mix_GetError()); \
+		exit(1); \
+	}
 #define BUTTON(tex, img, imgp) \
 	LOAD(tex[BUTTON_NORMAL],  img "normal" imgp); \
 	LOAD(tex[BUTTON_HOVER],   img "hover" imgp); \
@@ -1575,7 +1621,17 @@ void load_resources()
 	
 	BUTTON(texButtonLaunch, "tex/launch-button-", ".png");
 	
+	SOUND(sndStartup, "sounds/startup.wav");
+	SOUND(sndLaunch, "sounds/launch.wav");
+	SOUND(sndSplit2, "sounds/split2.wav");
+	SOUND(sndSplit3, "sounds/split3.wav");
+	SOUND(sndBoost, "sounds/boost.wav");
+	SOUND(sndImpactBarricade, "sounds/barricade.wav");
+	SOUND(sndImpactWall, "sounds/crush.wav");
+	SOUND(sndImpactBase, "sounds/base.wav");
+	
 #undef BUTTON
+#undef SOUND
 #undef LOAD
 }
 
