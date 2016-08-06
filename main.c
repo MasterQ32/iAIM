@@ -103,6 +103,8 @@ SDL_Texture *texMenuItems;
 SDL_Texture *texMenuSelector;
 SDL_Texture *texMenuHelp;
 
+SDL_Texture *texCredits;
+
 Mix_Chunk *sndStartup;
 Mix_Chunk *sndLaunch;
 Mix_Chunk *sndSplit2;
@@ -534,9 +536,34 @@ void menu()
 
 }
 
+
 void credits()
 {
-
+	int currentSelection = 0;
+	while(true)
+	{
+		SDL_Event e;
+		while(SDL_PollEvent(&e))
+		{
+			if(e.type == SDL_QUIT) exit(1);
+			if(e.type == SDL_KEYDOWN) return;
+			if(e.type == SDL_MOUSEBUTTONUP) return;
+		}
+		SDL_Rect fullscreen = {
+			0, 0,
+			1280, 720,
+		};
+		
+		SDL_RenderCopy(
+			renderer,
+			texCredits,
+			NULL,
+			&fullscreen);
+		
+		SDL_RenderPresent(renderer);
+	
+		SDL_Delay(16);
+	}
 }
 
 void help()
@@ -1834,6 +1861,8 @@ void load_resources()
 	LOAD(texMenuItems, "tex/mainmenu-items.png");
 	LOAD(texMenuSelector, "tex/mainmenu-selector.png");
 	LOAD(texMenuHelp, "tex/helpmenu.png");
+	
+	LOAD(texCredits, "tex/credits.png");
 	
 	LOAD(texLevelBackground, "tex/levelselection.png");
 	LOAD(texLevelSelector, "tex/level-selector.png");
