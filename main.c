@@ -23,8 +23,8 @@
 #define AFFECTOR_LIFE (gameOptions.affectorLifespan)
 #define AFFECTOR_COOLDOWNS { 1, 1, 1, 4, 3 }
 
-#define BASE_LIFEPOINTS 4
-#define PROTECTOR_LIFE 3
+#define BASE_LIFEPOINTS (gameOptions.baseLifespan)
+#define PROTECTOR_LIFE (gameOptions.protectorLifespan)
 
 typedef struct {
 	float x, y;
@@ -129,33 +129,37 @@ struct {
 	bool affectorsStay;
 	bool rotatingProtectors;
 	int affectorLifespan;
+	int protectorLifespan;
+	int baseLifespan;
 } gameOptions = {
 	/* useSlowAiming      = */ false,
 	/* affectorsStay      = */ false, 
-	/* rotatingProtectors = */ true,
+	/* rotatingProtectors = */ false,
 	/* affectorLifespan   = */ 3,
+	/* protectorLifespan  = */ 3,
+	/* baseLifespan       = */ 4,
 };
 
 float battleTime = 0.0;
-#define PROTECTOR_ROTSPEED (gameOptions.rotatingProtectors ? 5.0 : 0.0)
+#define PROTECTOR_ROTSPEED (gameOptions.rotatingProtectors ? 2.0 : 0.0)
 #define PROTECTOR_OFFSET (battleTime * PROTECTOR_ROTSPEED)
 
 int framecounter = 0;
 
 base_t leftBase = {
 	{ 92, 75, 255, 255 },
-	{ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 },
-	{ 0, 0, 0, 0, 0 },
+	{ 0 },
+	{ 0 },
 	AFFECTOR_COOLDOWNS,
-	BASE_LIFEPOINTS
+	0
 };
 
 base_t rightBase = {
 	{ 85, 182, 74, 255 },
-	{ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 },
-	{ 0, 0, 0, 0, 0 },
+	{ 0 },
+	{ 0 },
 	AFFECTOR_COOLDOWNS,
-	BASE_LIFEPOINTS
+	0
 };
 
 particle_t *particles = NULL;
