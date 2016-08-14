@@ -1484,6 +1484,20 @@ void player_build(base_t *player)
 					// On click: finish!
 					return;
 				}
+				
+				{ // Check for click on base:
+					float x = e.button.x - battleground.x;
+					if(player == &rightBase) {
+						x -= battleground.w;
+					}
+					float y = e.button.y - battleground.h/2;
+					
+					if((x*x+y*y) < (125*125))
+					{
+						// Launch when click on base.
+						return;
+					}
+				}
 			}
 			
 			if(e.type == SDL_MOUSEMOTION);
