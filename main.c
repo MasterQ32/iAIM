@@ -20,7 +20,7 @@
 #define DEG_TO_RAD(x) ((x) * M_PI / 180.0)
 
 #define AFFECTOR_TYPE_COUNT 5
-#define AFFECTOR_LIFE 3
+#define AFFECTOR_LIFE (gameOptions.affectorLivespan)
 #define AFFECTOR_COOLDOWNS { 1, 1, 1, 4, 3 }
 
 #define BASE_LIFEPOINTS 4
@@ -126,9 +126,11 @@ bool isGameRunning = false;
 struct {
 	bool useSlowAiming;
 	bool affectorsStay;
+	int affectorLifespan;
 } gameOptions = {
-	/* useSlowAiming = */ false,
-	/* affectorsStay = */ true, 
+	/* useSlowAiming    = */ false,
+	/* affectorsStay    = */ false, 
+	/* affectorLifespan = */ 3,
 };
 
 int framecounter = 0;
