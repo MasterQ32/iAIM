@@ -55,6 +55,7 @@ typedef struct projectile {
 
 typedef struct affector {
 	int type; /* -1=removed, 0=positive, 1=negative, 2=boost, 3=splitter3, 4=splitter2 */
+	base_t const * owner; 
 	float2 center;
 	float rotation;
 	int lifepoints;
@@ -122,6 +123,14 @@ int cooldowns[AFFECTOR_TYPE_COUNT] = AFFECTOR_COOLDOWNS;
 
 bool isGameRunning = false;
 
+struct {
+	bool useSlowAiming;
+	bool affectorsStay;
+} gameOptions = {
+	/* useSlowAiming = */ false,
+	/* affectorsStay = */ true, 
+};
+
 int framecounter = 0;
 
 base_t leftBase = {
@@ -180,7 +189,7 @@ void spawn_particle(base_t const * base, int x, int y, float rot);
 
 void fire_projectile(base_t const * base, float2 pos, float2 vel);
 
-affector_t * create_affector(int type, float2 pos);
+affector_t * create_affector(base_t const * owner, int type, float2 pos);
 
 void load_level(const char *file);
 
@@ -945,7 +954,11 @@ bool player_aim(base_t *player)
 		nextFrameTime = SDL_GetTicks() + 15;
 		
 		
-		a += 90.0 * d * dt;
+		float angularSpeed = 90.0;
+		if(gameOptions.useSlowAiming) {
+			angularSpeed = 45.0;
+		}
+		a += angularSpeed * d * dt;
 		
 		// bounces
 		if(a > 165.0) {
@@ -1319,13 +1332,40 @@ void battle_reset()
 	projectiles = NULL;
 	
 	
-	for(affector_t *p = affectors; p != NULL; )
-	{
-		affector_t *k = p;
-		p = p->next;
-		free(k);
+	if(gameOptions.affectorsStay) {
+		affector_t *it = affectors;
+		affector_t *prev = NULL;
+		while(it != NULL)
+		{
+			if(it->type >= 0) {
+				// Just skip
+				prev = it;
+				it = it->next;
+			} else {
+				// delete entry
+				if(prev == NULL) {
+					affectors = it->next;
+				}
+				
+				affector_t *tmp = it;
+				it = it->next;
+				free(tmp);
+				
+				if(prev != NULL) {
+					prev->next = it;
+				}
+			}
+		}
+	
+	} else {
+		for(affector_t *p = affectors; p != NULL; )
+		{
+			affector_t *k = p;
+			p = p->next;
+			free(k);
+		}
+		affectors = NULL;
 	}
-	affectors = NULL;
 }
 
 void player_build(base_t *player)
@@ -1426,6 +1466,9 @@ void player_build(base_t *player)
 						float minDist = 16;
 						for(affector_t *p = affectors; p != NULL; p = p->next)
 						{
+							if(p->owner != player) {
+								continue;
+							}
 							float2 pos = {
 								battleground.x + p->center.x,
 								p->center.y,
@@ -1448,7 +1491,7 @@ void player_build(base_t *player)
 				if(draggingAffector >= 0) {
 					fprintf(stderr, "%d,%d,%d\n", e.button.x, battleground.x, battleground.w);
 					if(e.button.x >= battleground.x && e.button.x < (battleground.x + battleground.w)) {
-						affector_t *a = create_affector(draggingAffector, (float2){e.button.x - 128, e.button.y});
+						affector_t *a = create_affector(player, draggingAffector, (float2){e.button.x - 128, e.button.y});
 						if(player == &rightBase) {
 							a->rotation = 180;
 						}
@@ -1494,8 +1537,18 @@ void player_build(base_t *player)
 					
 					if((x*x+y*y) < (125*125))
 					{
-						// Launch when click on base.
-						return;
+						if(player == &rightBase) {
+							if(x < 0) {
+								// Launch when click on base.
+								return;
+							}
+						}
+						if(player == &leftBase) {
+							if(x > 0) {
+								// Launch
+								return;
+							}
+						}
 					}
 				}
 			}
@@ -1851,10 +1904,11 @@ void fire_projectile(base_t const * base, float2 pos, float2 vel)
 	projectiles = p;
 }
 
-affector_t * create_affector(int type, float2 pos)
+affector_t * create_affector(base_t const * owner, int type, float2 pos)
 {
 	affector_t *a = malloc(sizeof(affector_t));
 	a->type = type; /* 0=positive, 1=negative */
+	a->owner = owner;
 	a->center = pos;
 	a->rotation = 0;
 	a->lifepoints = AFFECTOR_LIFE;
