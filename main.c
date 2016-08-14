@@ -20,10 +20,11 @@
 #define DEG_TO_RAD(x) ((x) * M_PI / 180.0)
 
 #define AFFECTOR_TYPE_COUNT 5
-#define AFFECTOR_LIFE (gameOptions.affectorLivespan)
+#define AFFECTOR_LIFE (gameOptions.affectorLifespan)
 #define AFFECTOR_COOLDOWNS { 1, 1, 1, 4, 3 }
 
 #define BASE_LIFEPOINTS 4
+#define PROTECTOR_LIFE 3
 
 typedef struct {
 	float x, y;
@@ -31,7 +32,7 @@ typedef struct {
 
 typedef struct {
 	SDL_Color color;
-	int protectors[13];
+	int protectors[24];
 	int resources[AFFECTOR_TYPE_COUNT];
 	int respawn[AFFECTOR_TYPE_COUNT];
 	int lifepoints;
@@ -126,12 +127,18 @@ bool isGameRunning = false;
 struct {
 	bool useSlowAiming;
 	bool affectorsStay;
+	bool rotatingProtectors;
 	int affectorLifespan;
 } gameOptions = {
-	/* useSlowAiming    = */ false,
-	/* affectorsStay    = */ false, 
-	/* affectorLifespan = */ 3,
+	/* useSlowAiming      = */ false,
+	/* affectorsStay      = */ false, 
+	/* rotatingProtectors = */ true,
+	/* affectorLifespan   = */ 3,
 };
+
+float battleTime = 0.0;
+#define PROTECTOR_ROTSPEED (gameOptions.rotatingProtectors ? 5.0 : 0.0)
+#define PROTECTOR_OFFSET (battleTime * PROTECTOR_ROTSPEED)
 
 int framecounter = 0;
 
@@ -708,15 +715,15 @@ void render_battleground()
 	}
 	
 	// draw base protectors.
-	for(int i = 0; i < 13; i++) {
+	for(int i = 0; i < 24; i++) {
 	
 		int baseRadius = 136;
 	
 		// left base
 		if(leftBase.protectors[i] > 0) {
 			SDL_Rect target = {
-				battleground.x + baseRadius * sinf(DEG_TO_RAD(15 * i)) - 6,
-				battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(15 * i)) - 15,
+				battleground.x + baseRadius * sinf(DEG_TO_RAD(15 * i - PROTECTOR_OFFSET)) - 6,
+				battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(15 * i - PROTECTOR_OFFSET)) - 15,
 				12,
 				30,
 			};
@@ -727,15 +734,15 @@ void render_battleground()
 				texBarricade[3 - leftBase.protectors[i]],
 				NULL,
 				&target,
-				-15 * i - 90,
+				-15 * i - 90 + PROTECTOR_OFFSET,
 				NULL,
 				SDL_FLIP_NONE);
 		}
 		
 		if(rightBase.protectors[i] > 0) {
 			SDL_Rect target = {
-				battleground.x + battleground.w - baseRadius * sinf(DEG_TO_RAD(15 * i)) - 6,
-				battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(15 * i)) - 15,
+				battleground.x + battleground.w - baseRadius * sinf(DEG_TO_RAD(15 * i + PROTECTOR_OFFSET)) - 6,
+				battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(15 * i + PROTECTOR_OFFSET)) - 15,
 				12,
 				30,
 			};
@@ -746,7 +753,7 @@ void render_battleground()
 				tex,
 				NULL,
 				&target,
-				15 * i - 90,
+				15 * i - 90 + PROTECTOR_OFFSET,
 				NULL,
 				SDL_FLIP_NONE);
 		}
@@ -827,6 +834,8 @@ void render_battleground()
 				SDL_FLIP_NONE);
 		}
 	}
+	
+	battleTime += (1.0 / 30.0);
 	
 	SDL_RenderSetClipRect(renderer, NULL);
 }
@@ -1212,18 +1221,18 @@ void battle_simulation()
 			if(p->active)
 			{
 				// check collision against protectors
-				for(int i = 0; i < 13; i++) {
+				for(int i = 0; i < 24; i++) {
 					int baseRadius = 136;
 				
 					// left base
 					if(leftBase.protectors[i] > 0) {
 						SDL_Rect target = {
-							baseRadius * sinf(DEG_TO_RAD(15 * i)) - 6,
-							battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(15 * i)) - 15,
+							baseRadius * sinf(DEG_TO_RAD(15 * i - PROTECTOR_OFFSET)) - 6,
+							battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(15 * i - PROTECTOR_OFFSET)) - 15,
 							12,
 							30,
 						};
-						float a = -15 * i - 90;
+						float a = -15 * i - 90 + PROTECTOR_OFFSET;
 						
 						bool hit = check_collision(
 							p->pos,
@@ -1241,12 +1250,12 @@ void battle_simulation()
 					
 					if(rightBase.protectors[i] > 0) {
 						SDL_Rect target = {
-							battleground.w - baseRadius * sinf(DEG_TO_RAD(15 * i)) - 6,
-							battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(15 * i)) - 15,
+							battleground.w - baseRadius * sinf(DEG_TO_RAD(15 * i + PROTECTOR_OFFSET)) - 6,
+							battleground.h / 2 + baseRadius * cosf(DEG_TO_RAD(15 * i + PROTECTOR_OFFSET)) - 15,
 							12,
 							30,
 						};
-						float a = 15 * i - 90;
+						float a = 15 * i - 90 + PROTECTOR_OFFSET;
 						bool hit = check_collision(
 							p->pos,
 							newPos,
@@ -1809,6 +1818,12 @@ void start_round(const char *level)
 		BASE_LIFEPOINTS
 	};
 	
+	for(int i = 0; i < 24; i++) {
+		leftBase.protectors[i] = PROTECTOR_LIFE;
+		rightBase.protectors[i] = PROTECTOR_LIFE;
+	}
+	
+	battleTime = 0.0;
 	
 	// Start game
 	base_t *player = &leftBase;
