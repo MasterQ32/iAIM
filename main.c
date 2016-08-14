@@ -135,9 +135,9 @@ struct {
 	/* useSlowAiming      = */ false,
 	/* affectorsStay      = */ false, 
 	/* rotatingProtectors = */ false,
-	/* affectorLifespan   = */ 3,
-	/* protectorLifespan  = */ 3,
-	/* baseLifespan       = */ 4,
+	/* affectorLifespan   = */ 3, // 0-...
+	/* protectorLifespan  = */ 3, // 0-3
+	/* baseLifespan       = */ 4, // 1-10
 };
 
 float battleTime = 0.0;
