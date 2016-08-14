@@ -1086,6 +1086,10 @@ void battle_simulation()
 			
 			for(affector_t *a = affectors; a != NULL; a = a->next)
 			{
+				if(a->type < 0) {
+					// ignore all destroyed affectors.
+					continue;
+				}
 				float2 dst = {
 					p->pos.x - a->center.x,
 					p->pos.y - a->center.y,
@@ -1097,7 +1101,7 @@ void battle_simulation()
 				if(len <= 16) { // 32 diameter
 					// we crashen in an affector
 					
-					if(a->lifepoints-- > 0 && a->type >= 2 && a->type <= 4) {
+					if(a->lifepoints > 0 && a->type >= 2 && a->type <= 4) {
 						// and this affector is a booster
 						
 						int offset[] = { 0, -45, 45 };
@@ -1137,6 +1141,12 @@ void battle_simulation()
 								(float2){ a->center.x + dir.x, a->center.y + dir.y }, 
 								xvel);
 						}
+					}
+					
+					a->lifepoints -= 1;
+					
+					if(a->lifepoints <= 0) {
+						a->type = -1; // Destroy the affector.
 					}
 					
 					p->active = false;
