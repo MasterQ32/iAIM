@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdbool.h>
+
 #if defined(_MSC_VER)
 #include <windows.h>
 #include <SDL.h>
@@ -9,11 +10,18 @@
 
 #define MAX max
 #define MIN min
+
+// TODO: Include ini configuration here?
+
 #else
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_mixer.h>
 #include <sys/param.h>
+
+#include <iniparser.h>
+
 #endif
 
 #define RAD_TO_DEG(x) ((x) * 180.0 / M_PI)
@@ -196,6 +204,8 @@ void help();
 
 void credits();
 
+void load_options();
+
 void start_round(const char *level);
 
 void spawn_particle(base_t const * base, int x, int y, float rot);
@@ -230,6 +240,8 @@ int main(int argc, char **argv)
 		printf("Mix_OpenAudio: %s\n", Mix_GetError());
 		exit(1);
 	}
+	
+	load_options();
 	
 	window = SDL_CreateWindow(
 		"iAIM",
@@ -1950,7 +1962,6 @@ affector_t * create_affector(base_t const * owner, int type, float2 pos)
 	return a;
 }
 
-
 /**
  * Loads all resources used by the game.
  **/
@@ -2025,6 +2036,68 @@ void load_resources()
 #undef LOAD
 }
 
+
+/*
+struct {
+	bool useSlowAiming;
+	bool affectorsStay;
+	bool rotatingProtectors;
+	int affectorLifespan;
+	int protectorLifespan;
+	int baseLifespan;
+} gameOptions = {
+	useSlowAiming      =  true,
+	affectorsStay      =  true, 
+	rotatingProtectors =  true,
+	affectorLifespan   =  3, // 0-...
+	protectorLifespan  =  3, // 0-3
+	baseLifespan       =  4, // 1-10
+};
+*/
+
+#if defined(_MSC_VER)
+// windows
+
+void load_options();
+
+#else
+// linux
+
+void load_options()
+{
+	dictionary * ini = iniparser_load("game.ini");
+	
+	if(ini == NULL) {
+		fprintf(stderr, "Failed to load game.ini, fallback to default options.\n");
+		return;
+	}
+	
+	iniparser_dump(ini, stderr);
+	
+	gameOptions.useSlowAiming      = iniparser_getboolean(ini, "iaim:slowaiming", 0);
+	gameOptions.affectorsStay      = iniparser_getboolean(ini, "iaim:affectorsstay", 0);
+	gameOptions.rotatingProtectors = iniparser_getboolean(ini, "iaim:rotatingbarricade", 0);
+	
+	
+	gameOptions.affectorLifespan   = iniparser_getint(ini, "iaim:affectorlifespan", 3);
+	gameOptions.protectorLifespan  = iniparser_getint(ini, "iaim:protectorlifespan", 3);
+	gameOptions.baseLifespan       = iniparser_getint(ini, "iaim:baselifespan", 4);
+	
+	if(gameOptions.affectorLifespan < 1)
+		gameOptions.affectorLifespan = 1;
+	if(gameOptions.protectorLifespan < 0)
+		gameOptions.protectorLifespan = 0;
+	if(gameOptions.protectorLifespan > 3)
+		gameOptions.protectorLifespan = 3;
+	if(gameOptions.baseLifespan < 1)
+		gameOptions.baseLifespan = 1;
+	if(gameOptions.baseLifespan > 10)
+		gameOptions.baseLifespan = 10;
+	
+	iniparser_freedict(ini);
+}
+
+#endif
 
 float distance(float2 a, float2 b)
 {
